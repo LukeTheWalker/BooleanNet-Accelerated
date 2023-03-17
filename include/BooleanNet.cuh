@@ -12,6 +12,6 @@ public:
     __host__ __device__ void getSingleImplication(int * quadrant_counts, int n_total, int n_first_low, int n_first_high, int n_second_low, int n_second_high, char impl_type, float * statistic, float * pval);
 };
 
-__global__ void getImplication(char * expr_values, int genes, int samples);
+__global__ void getImplication(char * expr_values, int ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh);
 
 #endif

@@ -43,7 +43,7 @@ __host__ void BooleanNet::get_all_implications(std::vector<std::string> genes, c
 #endif
 }
 
-__host__ void BooleanNet::getQuadrantCounts(int gene1, int gene2, char* expr_values, int nsamples, int* quadrant_counts){
+__host__ __device__ void BooleanNet::getQuadrantCounts(int gene1, int gene2, char* expr_values, int nsamples, int* quadrant_counts){
     for (int i = 0; i < 4; i++){
         quadrant_counts[i] = 0;
     }
@@ -75,7 +75,7 @@ __host__ void BooleanNet::getQuadrantCounts(int gene1, int gene2, char* expr_val
     }
 }
 
-__host__ void BooleanNet::getSingleImplication(int* quadrant_counts, int n_total, int n_first_low, int n_first_high, int n_second_low, int n_second_high, char impl_type, float* statistic, float* pval){
+__host__ __device__ void BooleanNet::getSingleImplication(int* quadrant_counts, int n_total, int n_first_low, int n_first_high, int n_second_low, int n_second_high, char impl_type, float* statistic, float* pval){
     if (is_zero(n_first_low, n_first_high, n_second_low, n_second_high, impl_type)){
         *statistic = 0.0;
         *pval = 1.0;
@@ -103,7 +103,7 @@ __host__ void BooleanNet::getSingleImplication(int* quadrant_counts, int n_total
         *pval = ((((double)quadrant_counts[2] / n_first_high) + ((double)quadrant_counts[2] / n_second_low)) / 2);
     }
 }
-__host__ char BooleanNet::is_zero(int n_first_low, int n_first_high, int n_second_low, int n_second_high, char impl_type){
+__host__ __device__ char BooleanNet::is_zero(int n_first_low, int n_first_high, int n_second_low, int n_second_high, char impl_type){
     if (impl_type == 0){
         if (n_first_low > 0 && n_second_high > 0)
             return 0;
@@ -122,8 +122,42 @@ __host__ char BooleanNet::is_zero(int n_first_low, int n_first_high, int n_secon
     }
     else {
         printf("Invalid impl_type in is_zero\n");
-        exit(1);
     }
     return 1;
+}
+
+__global__ void getImplication(char * expr_values, int ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh){
+    int gi = blockIdx.x * blockDim.x + threadIdx.x;
+
+    int gene1 = gi / ngenes;
+    int gene2 = gi % ngenes;
+
+    if (gi % (ngenes * ngenes / 100) == 0)
+        printf("Processed %d%% of genes, index: %d\n", (int)(100 * (float)gi / (ngenes * ngenes)), gi);
+
+
+    if (gene1 == gene2 || gi >= ngenes * ngenes){
+        return;
+    }
+
+    int n_first_low, n_first_high, n_second_high, n_second_low, n_total;
+    float statistic, pval;
+
+    int quadrant_counts[4];
+    net->getQuadrantCounts(gene1, gene2, expr_values, nsamples, quadrant_counts);
+
+    n_first_low = quadrant_counts[0] + quadrant_counts[1];
+    n_first_high = quadrant_counts[2] + quadrant_counts[3];
+    n_second_high = quadrant_counts[1] + quadrant_counts[3];
+    n_second_low = quadrant_counts[0] + quadrant_counts[2];
+
+    n_total = n_first_low + n_first_high;
+
+    for (int impl_type = 0; impl_type < 4; impl_type++){
+        net->getSingleImplication(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, &statistic, &pval);
+        if (statistic > statThresh && pval < pvalThresh){
+            printf("%d\t%d\t%d\t%f\t%f\t\n", gene1, gene2, impl_type, statistic, pval);
+        }
+    }
 }
 
