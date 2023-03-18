@@ -126,15 +126,17 @@ __host__ __device__ char BooleanNet::is_zero(int n_first_low, int n_first_high, 
     return 1;
 }
 
-__global__ void getImplication(char * expr_values, int ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh){
-    int gi = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh){
+    uint64_t gi = (uint64_t) blockIdx.x * (uint64_t) blockDim.x + (uint64_t) threadIdx.x;
 
-    int gene1 = gi / ngenes;
-    int gene2 = gi % ngenes;
+    uint64_t gene1 = gi / ngenes;
+    uint64_t gene2 = gi % ngenes;
 
-    if (gi % (ngenes * ngenes / 100) == 0)
-        printf("Processed %d%% of genes, index: %d\n", (int)(100 * (float)gi / (ngenes * ngenes)), gi);
+    uint64_t nels = ngenes * ngenes;
 
+    // if (gi % (nels / 100) == 0)
+    //     printf("Processed %ld%% of %ld total genes, index: %ld\n", gi / (nels / 100), nels, gi);
+    
 
     if (gene1 == gene2 || gi >= ngenes * ngenes){
         return;
@@ -156,7 +158,7 @@ __global__ void getImplication(char * expr_values, int ngenes, int nsamples, Boo
     for (int impl_type = 0; impl_type < 4; impl_type++){
         net->getSingleImplication(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, &statistic, &pval);
         if (statistic > statThresh && pval < pvalThresh){
-            printf("%d\t%d\t%d\t%f\t%f\t\n", gene1, gene2, impl_type, statistic, pval);
+            printf("%ld\t%ld\t%d\t%f\t%f\t\n", gene1, gene2, impl_type, statistic, pval);
         }
     }
 }

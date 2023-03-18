@@ -9,14 +9,14 @@
 
 using namespace std;
 
-int round_div_up (int a, int b){
+uint64_t round_div_up (uint64_t a, uint64_t b){
     return (a + b - 1)/b;
 }
 
-void launch_kernel (char * d_expr_values, int ngenes, int nsamples, BooleanNet * d_net, float statThresh, float pvalThresh){
+void launch_kernel (char * d_expr_values, uint64_t ngenes, int nsamples, BooleanNet * d_net, float statThresh, float pvalThresh){
     int lws = 256;
-    int gws = round_div_up(ngenes * ngenes, lws);
-    cout << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << endl;
+    uint64_t gws = round_div_up(ngenes * ngenes, lws);
+    cout << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << ngenes*ngenes << " items" << endl;
     getImplication<<<gws, lws>>>(d_expr_values, ngenes, nsamples, d_net, statThresh, pvalThresh);
     cudaError_t err = cudaGetLastError();
     cuda_err_check(err, __FILE__, __LINE__);
@@ -28,8 +28,8 @@ int main(){
     string implication_file = "/home/luca/Development/IDM/Tesi/impl.txt";
     string gene1 = "";
     string gene2 = "";
-    char type = -1;
-    double statThresh = 6.0;
+    // char type = -1;
+    double statThresh = 4.0;
     double pvalThresh = 0.01;
     cudaError_t err;
 
@@ -51,7 +51,7 @@ int main(){
     cout << "Expression Matrix shape: " << n_rows << " x " << n_cols << endl;
     cout << "Number of genes: " << genes.size() << endl;
 
-    float * implications;
+    // float * implications;
     // err = cudaMallocHost(&implications, sizeof(float) * genes.size() * genes.size() * 4 * 5);
     // cuda_err_check(err, __FILE__, __LINE__);
 
@@ -70,7 +70,7 @@ int main(){
     err = cudaMemcpy(d_net, &net, sizeof(BooleanNet), cudaMemcpyHostToHost);
     cuda_err_check(err, __FILE__, __LINE__);
 
-    cout << "Instantiated Implications Matrix of size: " << genes.size() * genes.size() * 4 * 5 << endl;
+    cout << "Instantiated Implications Matrix of size: " << genes.size() * genes.size() /** 4 * 5*/ << endl;
 
     launch_kernel(d_expr_values, n_rows, n_cols, d_net, statThresh, pvalThresh);
 
