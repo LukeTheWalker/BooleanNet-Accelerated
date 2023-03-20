@@ -9,14 +9,14 @@
 using namespace std;
 
 FileManager::FileManager(){
-    std::cout << "FileManager created" << std::endl;
+    std::cerr << "FileManager created" << std::endl;
 }
 
 FileManager::~FileManager(){
     cudaError_t err = cudaFreeHost(matrix);
     cuda_err_check(err, __FILE__, __LINE__);
 
-    std::cout << "FileManager destroyed" << std::endl;
+    std::cerr << "FileManager destroyed" << std::endl;
 }
 
 int FileManager::getNumberOfColumns(string file){
@@ -59,7 +59,7 @@ void FileManager::readFile(string file){
 
     ifstream in(file);
 
-    printf("Reading file with %d rows and %d columns\n", n_rows, n_columns);
+    std::cerr << "Reading file with " << n_rows << " rows and " << n_columns << " columns" << std::endl;
 
     cudaError_t err = cudaMallocHost(&matrix, (n_rows) * (n_columns) * sizeof(char));
     cuda_err_check(err, __FILE__, __LINE__);

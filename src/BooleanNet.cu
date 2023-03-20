@@ -137,8 +137,7 @@ __global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples
     // if (gi % (nels / 100) == 0)
     //     printf("Processed %ld%% of %ld total genes, index: %ld\n", gi / (nels / 100), nels, gi);
     
-
-    if (gene1 == gene2 || gi >= ngenes * ngenes){
+    if (gene1 == gene2 || gi >= nels){
         return;
     }
 
