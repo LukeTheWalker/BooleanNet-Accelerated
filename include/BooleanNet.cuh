@@ -4,6 +4,14 @@
 #include <string>
 #include <vector>
 
+typedef struct implication_t{
+    int gene1;
+    int gene2;
+    char impl_type;
+    float statistic;
+    float pval;
+} implication;
+
 class BooleanNet{
 public:
     __host__   void get_all_implications(std::vector<std::string> genes, char* expr_values, int nsamples, float statThresh, float pvalThresh, float * implication_matrix);
@@ -12,6 +20,6 @@ public:
     __host__ __device__ void getSingleImplication(int * quadrant_counts, int n_total, int n_first_low, int n_first_high, int n_second_low, int n_second_high, char impl_type, float * statistic, float * pval);
 };
 
-__global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh);
+__global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh, uint32_t * impl_len, implication * implications);
 
 #endif

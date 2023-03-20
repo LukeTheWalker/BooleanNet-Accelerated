@@ -126,7 +126,7 @@ __host__ __device__ char BooleanNet::is_zero(int n_first_low, int n_first_high, 
     return 1;
 }
 
-__global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh){
+__global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh, uint32_t * impl_len, implication * d_implications){
     uint64_t gi = (uint64_t) blockIdx.x * (uint64_t) blockDim.x + (uint64_t) threadIdx.x;
 
     uint64_t gene1 = gi / ngenes;
@@ -154,10 +154,11 @@ __global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples
 
     n_total = n_first_low + n_first_high;
 
-    for (int impl_type = 0; impl_type < 4; impl_type++){
+    for (char impl_type = 0; impl_type < 4; impl_type++){
         net->getSingleImplication(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, &statistic, &pval);
-        if (statistic > statThresh && pval < pvalThresh){
-            printf("%ld\t%ld\t%d\t%f\t%f\t\n", gene1, gene2, impl_type, statistic, pval);
+        if (statistic >= statThresh && pval <= pvalThresh){
+            int idx = atomicAdd(impl_len, 1);
+            d_implications[idx] = {(int)gene1, (int)gene2, impl_type, statistic, pval};
         }
     }
 }

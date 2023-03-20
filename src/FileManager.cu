@@ -54,7 +54,7 @@ void FileManager::readFile(string file){
     int i = 0;
     string delimiter = "\t";
 
-    n_columns = getNumberOfColumns(file) - 1;
+    n_columns = getNumberOfColumns(file);
     n_rows = getNumberOfRows(file) - 1;
 
     ifstream in(file);
@@ -79,8 +79,10 @@ void FileManager::readFile(string file){
             line.erase(0, pos + delimiter.length());
             j++;
         }
+        matrix[i*n_columns+j] = stoi(line);
         i++;
     }
+    in.close();
 }
 
 void FileManager::initImplicationFile(string file){
