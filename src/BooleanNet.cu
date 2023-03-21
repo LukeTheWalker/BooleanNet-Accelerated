@@ -126,7 +126,7 @@ __host__ __device__ char BooleanNet::is_zero(int n_first_low, int n_first_high, 
     return 1;
 }
 
-__global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh, uint32_t * impl_len, implication * d_implications){
+__global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh, uint32_t * impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
     uint64_t gi = (uint64_t) blockIdx.x * (uint64_t) blockDim.x + (uint64_t) threadIdx.x;
 
     uint64_t gene1 = gi / ngenes;
@@ -142,7 +142,7 @@ __global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples
     }
 
     int n_first_low, n_first_high, n_second_high, n_second_low, n_total;
-    float statistic, pval;
+    float all_statistic[4], all_pval[4];
 
     int quadrant_counts[4];
     net->getQuadrantCounts(gene1, gene2, expr_values, nsamples, quadrant_counts);
@@ -155,11 +155,21 @@ __global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples
     n_total = n_first_low + n_first_high;
 
     for (char impl_type = 0; impl_type < 4; impl_type++){
-        net->getSingleImplication(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, &statistic, &pval);
-        if (statistic >= statThresh && pval <= pvalThresh){
+        float * statistic = all_statistic + impl_type;
+        float * pval = all_pval + impl_type;
+        net->getSingleImplication(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, statistic, pval);
+        if (*statistic >= statThresh && *pval <= pvalThresh){
             int idx = atomicAdd(impl_len, 1);
-            d_implications[idx] = {(int)gene1, (int)gene2, impl_type, statistic, pval};
+            d_implications[idx] = {(int)gene1, (int)gene2, impl_type, *statistic, *pval};
         }
+    }
+    if (all_statistic[0] >= statThresh && all_pval[0] <= pvalThresh && all_statistic[3] >= statThresh && all_pval[3] <= pvalThresh){
+        int idx = atomicAdd(d_symm_impl_len, 1);
+        d_symm_implications[idx] = {(int)gene1, (int)gene2, 4, all_statistic[0], all_statistic[3], all_pval[0], all_pval[3]};
+    }
+    else if (all_statistic[1] >= statThresh && all_pval[1] <= pvalThresh && all_statistic[2] >= statThresh && all_pval[2] <= pvalThresh){
+        int idx = atomicAdd(d_symm_impl_len, 1);
+        d_symm_implications[idx] = {(int)gene1, (int)gene2, 5, all_statistic[1], all_statistic[2], all_pval[1], all_pval[2]};
     }
 }
 

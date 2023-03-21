@@ -4,13 +4,15 @@
 #include <vector>
 #include <string>
 
+#include "BooleanNet.cuh"
+
 class FileManager{
     public:
         FileManager();
         ~FileManager();
         void readFile(std::string file);
         void initImplicationFile(std::string file);
-        void writeImplications(std::vector<std::vector<std::string>> listImplications, std::string file);
+        void writeImplications(std::string file, std::vector<std::string> genes, uint32_t impl_len, impl * implications, uint32_t symm_impl_len, symm_impl * symm_implications);
         std::vector<std::string> getListGenes();
         char * getMatrix();
         int getNumberOfRows();

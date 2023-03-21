@@ -5,6 +5,7 @@
 
 #include "FileManager.cuh"
 #include "util.cuh"
+#include "BooleanNet.cuh"
 
 using namespace std;
 
@@ -90,14 +91,32 @@ void FileManager::initImplicationFile(string file){
     out << "Implication\tStatistic(s)\tP-value(s)" << endl;
 }
 
-void FileManager::writeImplications(vector<vector<string>> listImplications, string file){
+void FileManager::writeImplications(string file, vector<string> genes, uint32_t impl_len, impl * implications, uint32_t symm_impl_len, symm_impl * symm_implications){
     ofstream out(file);
-    for(int i = 0; i < listImplications.size(); i++){
-        for(int j = 0; j < listImplications[i].size(); j++){
-            out << listImplications[i][j] << "\t";
-        }
-        out << endl;
+    out << "Gene1\tGene2\tImplication\tStatistic\tP-value" << endl;
+    for(int i = 0; i < impl_len; i++){
+        out << 
+            genes[implications[i].gene1] << "\t" << 
+            genes[implications[i].gene2] << "\t" << 
+            get_impl_string(implications[i].impl_type) << "\t" << 
+            implications[i].statistic << "\t" << 
+            implications[i].pval << endl;
     }
+    out.close();
+    string symm_file = file.substr(0, file.length() - 4) + "_symm.txt";
+    ofstream out_symm(symm_file);
+    out_symm << "Gene1\tGene2\tImplication\tStatistic1\tStatistic2\tP-value1\tP-value2" << endl;
+    for(int i = 0; i < symm_impl_len; i++){
+        out_symm << 
+            genes[symm_implications[i].gene1] << "\t" << 
+            genes[symm_implications[i].gene2] << "\t" << 
+            get_impl_string(symm_implications[i].impl_type) << "\t" << 
+            symm_implications[i].statistic[0] << "\t" << 
+            symm_implications[i].statistic[1] << "\t" <<
+            symm_implications[i].pval[0] << "\t" <<
+            symm_implications[i].pval[1] << endl;
+    }
+    out_symm.close();
 }
 
 vector<string> FileManager::getListGenes(){
