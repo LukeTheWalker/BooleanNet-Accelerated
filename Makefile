@@ -8,7 +8,7 @@ ifeq ($(shell which nvcc),)
 	CXX := g++
 else
 	CXX := nvcc
-	CUFLAGS := -arch=sm_86
+	CUFLAGS := -gencode arch=compute_75,code=sm_75 -gencode arch=compute_86,code=sm_86 -gencode arch=compute_86,code=compute_86
 endif
 
 CXXFLAGS= -I$(IDIR) -std=c++17 -g $(CUFLAGS) $(CV_FLAGS)
