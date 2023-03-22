@@ -121,12 +121,12 @@ int main(int argc, char * argv[]){
     err = cudaMemcpy(&impl_len, d_impl_len, sizeof(uint32_t), cudaMemcpyDeviceToHost);
     cuda_err_check(err, __FILE__, __LINE__);
 
-    cerr << "Number of implications: " << impl_len << endl;
+    cerr << "Number of asymmetric implications: " << impl_len << endl;
 
     err = cudaMemcpy(&symm_impl_len, d_symm_impl_len, sizeof(uint32_t), cudaMemcpyDeviceToHost);
     cuda_err_check(err, __FILE__, __LINE__);
 
-    cerr << "Number of symmetric implications: " << symm_impl_len << endl;
+    cerr << "Number of symmetric implications:  " << symm_impl_len << endl;
 
     if (impl_len > MAX_N_IMP || symm_impl_len > MAX_N_SYM_IMP){
         cerr << "Error! Too many implications!" << endl;
