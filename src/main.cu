@@ -107,8 +107,6 @@ int main(int argc, char * argv[]){
     err = cudaMemset(d_symm_impl_len, 0, sizeof(uint32_t));
     cuda_err_check(err, __FILE__, __LINE__);
 
-    cerr << "Instantiated Implications Matrix of size: " << genes.size() * genes.size() /** 4 * 5*/ << endl;
-
     // Launch kernel ------------------------------------------
 
     launch_kernel(d_expr_values, n_rows, n_cols, d_net, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
