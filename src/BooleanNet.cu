@@ -1,5 +1,20 @@
 #include "BooleanNet.cuh"
 
+__device__ char get_inverse_implication(char impl_type){
+    if (impl_type == 0){
+        return 3;
+    }
+    else if (impl_type == 1){
+        return 1;
+    }
+    else if (impl_type == 2){
+        return 2;
+    }
+    else if (impl_type == 3){
+        return 0;
+    }
+}
+
 __host__ void BooleanNet::get_all_implications(std::vector<std::string> genes, char* expr_values, int nsamples, float statThresh, float pvalThresh, float * implication_matrix){
 #if 1
     int gene1, gene2;
@@ -129,15 +144,19 @@ __host__ __device__ char BooleanNet::is_zero(int n_first_low, int n_first_high, 
 __global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh, uint32_t * impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
     uint64_t gi = (uint64_t) blockIdx.x * (uint64_t) blockDim.x + (uint64_t) threadIdx.x;
 
-    uint64_t gene1 = gi / ngenes;
-    uint64_t gene2 = gi % ngenes;
+    // uint64_t gene1 = gi / ngenes;
+    // uint64_t gene2 = gi % ngenes;
 
-    uint64_t nels = ngenes * ngenes;
+    uint64_t gene1 = ngenes - 2 - floor(sqrt((double)-8*gi + 4*ngenes*(ngenes-1)-7)/2.0 - 0.5);
+    uint64_t gene2 = gi + gene1 + 1 - ngenes*(ngenes-1)/2 + (ngenes-gene1)*((ngenes-gene1)-1)/2;
+
+    uint64_t nels = (ngenes * (ngenes - 1)) / 2;
 
     // if (gi % (nels / 100) == 0)
     //     printf("Processed %ld%% of %ld total genes, index: %ld\n", gi / (nels / 100), nels, gi);
     
     if (gene1 == gene2 || gi >= nels){
+        printf("Invalid gene pair: %ld, %ld\n", gene1, gene2);
         return;
     }
 
@@ -161,15 +180,21 @@ __global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples
         if (*statistic >= statThresh && *pval <= pvalThresh){
             int idx = atomicAdd(impl_len, 1);
             d_implications[idx] = {(int)gene1, (int)gene2, impl_type, *statistic, *pval};
+            idx = atomicAdd(impl_len, 1);
+            d_implications[idx] = {(int)gene2, (int)gene1, get_inverse_implication(impl_type), *statistic, *pval};
         }
     }
     if (all_statistic[0] >= statThresh && all_pval[0] <= pvalThresh && all_statistic[3] >= statThresh && all_pval[3] <= pvalThresh){
         int idx = atomicAdd(d_symm_impl_len, 1);
         d_symm_implications[idx] = {(int)gene1, (int)gene2, 4, all_statistic[0], all_statistic[3], all_pval[0], all_pval[3]};
+        idx = atomicAdd(d_symm_impl_len, 1);
+        d_symm_implications[idx] = {(int)gene2, (int)gene1, 4, all_statistic[3], all_statistic[0], all_pval[3], all_pval[0]};
     }
     else if (all_statistic[1] >= statThresh && all_pval[1] <= pvalThresh && all_statistic[2] >= statThresh && all_pval[2] <= pvalThresh){
         int idx = atomicAdd(d_symm_impl_len, 1);
         d_symm_implications[idx] = {(int)gene1, (int)gene2, 5, all_statistic[1], all_statistic[2], all_pval[1], all_pval[2]};
+        idx = atomicAdd(d_symm_impl_len, 1);
+        d_symm_implications[idx] = {(int)gene2, (int)gene1, 5, all_statistic[2], all_statistic[1], all_pval[2], all_pval[1]};
     }
 }
 

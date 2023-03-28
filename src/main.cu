@@ -19,8 +19,9 @@ uint64_t round_div_up (uint64_t a, uint64_t b){
 
 void launch_kernel (char * d_expr_values, uint64_t ngenes, int nsamples, BooleanNet * d_net, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
     int lws = 256;
-    uint64_t gws = round_div_up(ngenes * ngenes, lws);
-    cerr << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << ngenes*ngenes << " items" << endl;
+    uint64_t nels = (ngenes * (ngenes - 1)) / 2;
+    uint64_t gws = round_div_up(nels, lws);
+    cerr << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << nels << " items" << endl;
     getImplication<<<gws, lws>>>(d_expr_values, ngenes, nsamples, d_net, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
     cudaError_t err = cudaGetLastError();
     cuda_err_check(err, __FILE__, __LINE__);
