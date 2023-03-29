@@ -50,34 +50,18 @@ __host__ void BooleanNet::get_all_implications(std::vector<std::string> genes, c
 }
 
 __host__ __device__ void BooleanNet::getQuadrantCounts(int gene1, int gene2, char* expr_values, int nsamples, int* quadrant_counts){
-    for (int i = 0; i < 4; i++){
-        quadrant_counts[i] = 0;
-    }
-    // for (int i = 0; i < nsamples; i++){
-    //     printf("%d\t", expr_values[gene1 * nsamples + i]);
-    // }
-    // printf("\n");
-    // for (int i = 0; i < nsamples; i++){
-    //     printf("%d\t", expr_values[gene2 * nsamples + i]);
-    // }
-    // printf("\n");
+    quadrant_counts[0] = quadrant_counts[1] = quadrant_counts[2] = quadrant_counts[3] = 0;
+    int g1_ns = gene1 * nsamples;
+    int g2_ns = gene2 * nsamples;
     for (int i = 0; i < nsamples; i++){
-        if (expr_values[gene1 * nsamples + i] == -1){
-            if (expr_values[gene2 * nsamples + i] == -1){
-                quadrant_counts[0]++;
-            }
-            else if (expr_values[gene2 * nsamples + i] == 1){
-                quadrant_counts[1]++;
-            }
-        }
-        else if (expr_values[gene1 * nsamples + i] == 1){
-            if (expr_values[gene2 * nsamples + i] == -1){
-                quadrant_counts[2]++;
-            }
-            else if (expr_values[gene2 * nsamples + i] == 1){
-                quadrant_counts[3]++;
-            }
-        }
+        bool k1p = g1_ns + i == 1;
+        bool k1n = g1_ns + i == -1;
+        bool k2p = g2_ns + i == 1;
+        bool k2n = g2_ns + i == -1;
+        quadrant_counts[0] += k2n && k1n;
+        quadrant_counts[1] += k2p && k1n;
+        quadrant_counts[2] += k2n && k1p;
+        quadrant_counts[3] += k2p && k1p;
     }
 }
 
