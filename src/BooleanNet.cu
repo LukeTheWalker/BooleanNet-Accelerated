@@ -82,26 +82,25 @@ __host__ __device__ void BooleanNet::getSingleImplication(int* quadrant_counts, 
 
 }
 __host__ __device__ char BooleanNet::is_zero(int n_first_low, int n_first_high, int n_second_low, int n_second_high, char impl_type){
-    if (impl_type == 0){
-        if (n_first_low > 0 && n_second_high > 0)
-            return 0;
-    }
-    else if (impl_type == 1){
-        if (n_first_low > 0 && n_second_low > 0)
-            return 0;
-    }
-    else if (impl_type == 2){
-        if (n_first_high > 0 && n_second_high > 0)
-            return 0;
-    }
-    else if (impl_type == 3){
-        if (n_first_high > 0 && n_second_low > 0)
-            return 0;
-    }
-    else {
-        printf("Invalid impl_type in is_zero\n");
-    }
-    return 1;
+#ifdef DEBUG
+    if (impl_type & 0xfffffffc) printf("Invalid impl_type in is_zero\n");
+#endif
+
+    // For an explanation of the below method, see also:
+    // https://en.wikipedia.org/wiki/Karnaugh_map
+    // https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
+
+    bool ih = impl_type & 2;        // a
+    bool il = impl_type & 1;        // b
+    bool n1l = n_first_low > 0;     // c
+    bool n1h = n_first_high > 0;    // d
+    bool n2l = n_second_low > 0;    // e
+    bool n2h = n_second_high > 0;   // f
+
+    // SOP form
+    // Calculated at: http://www.32x8.com/qmm6_____A-B-C-D-E-F_____m_0-1-2-3-4-5-6-7-8-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-27-28-29-30-31-32-33-34-35-36-38-39-40-41-42-43-44-45-46-47-48-49-50-51-52-53-55-56-57-58-59-60-61-62-63___________option-4_____899788965371824592779
+    return  (!ih && !n1l) || (!il && !n2h) || (n2l && n2h) ||
+            (n1l && n1h)  || (il && !n2h)  || (ih && !n1h);
 }
 
 __global__ void getImplication(char * expr_values, uint64_t ngenes, int nsamples, BooleanNet * net, float statThresh, float pvalThresh, uint32_t * impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
