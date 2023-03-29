@@ -1,18 +1,9 @@
 #include "BooleanNet.cuh"
 
+// NOTE: strict mapping of this function for impl_type in [0,3].
 __device__ char get_inverse_implication(char impl_type){
-    if (impl_type == 0){
-        return 3;
-    }
-    else if (impl_type == 1){
-        return 1;
-    }
-    else if (impl_type == 2){
-        return 2;
-    }
-    else if (impl_type == 3){
-        return 0;
-    }
+    // Not using swith case because of problems with some gpu's and compiler, but still better than 4 if-else
+    return (3 - impl_type) - (impl_type == 1) + (impl_type == 2);
 }
 
 __host__ void BooleanNet::get_all_implications(std::vector<std::string> genes, char* expr_values, int nsamples, float statThresh, float pvalThresh, float * implication_matrix){
