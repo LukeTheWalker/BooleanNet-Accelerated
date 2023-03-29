@@ -72,26 +72,14 @@ __host__ __device__ void BooleanNet::getSingleImplication(int* quadrant_counts, 
         return;
     }
 
-    if (impl_type == 0){
-        double n_expected = (double)(n_first_low * n_second_high) / n_total;
-        *statistic = (n_expected - quadrant_counts[1]) / sqrt(n_expected);
-        *pval = ((((double)quadrant_counts[1] / n_first_low) + ((double)quadrant_counts[1] / n_second_high)) / 2);
-    }
-    else if (impl_type == 1){
-        double n_expected = (double)(n_first_low * n_second_low) / n_total;
-        *statistic = (n_expected - quadrant_counts[0]) / sqrt(n_expected);
-        *pval = ((((double)quadrant_counts[0] / n_first_low) + ((double)quadrant_counts[0] / n_second_low)) / 2);
-    }
-    else if (impl_type == 2){
-        double n_expected = (double)(n_first_high * n_second_high) / n_total;
-        *statistic = (n_expected - quadrant_counts[3]) / sqrt(n_expected);
-        *pval = ((((double)quadrant_counts[3] / n_first_high) + ((double)quadrant_counts[3] / n_second_high)) / 2);
-    }
-    else if (impl_type == 3){
-        double n_expected = (double)(n_first_high * n_second_low) / n_total;
-        *statistic = (n_expected - quadrant_counts[2]) / sqrt(n_expected);
-        *pval = ((((double)quadrant_counts[2] / n_first_high) + ((double)quadrant_counts[2] / n_second_low)) / 2);
-    }
+    int n1 = (impl_type > 1) * n_first_high + (impl_type <= 1) * n_first_low;
+    int n2 = (impl_type & 1) * n_second_low + (1 - (impl_type & 1)) * n_second_high;
+    int np = n1 * n2;
+    int q_index = impl_type ^ 1;
+    double n_expected = (double)np / n_total;
+    *statistic = (n_expected - quadrant_counts[q_index] / sqrt(n_expected));
+    *pval = ((double)(n1 + n2)) / (2 * np) * quadrant_counts[q_index];
+
 }
 __host__ __device__ char BooleanNet::is_zero(int n_first_low, int n_first_high, int n_second_low, int n_second_high, char impl_type){
     if (impl_type == 0){
