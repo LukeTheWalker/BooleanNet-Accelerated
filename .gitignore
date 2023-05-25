@@ -4,3 +4,4 @@ obj
 bin
 *.sh
 
+devtools/same_origin_equivalence.cpp
