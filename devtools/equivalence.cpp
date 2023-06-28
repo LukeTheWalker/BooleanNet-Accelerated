@@ -204,6 +204,17 @@ void check_difference(const std::vector<T>& implications_micale, const std::vect
             cerr << "Difference found Luca:   " << it->first << endl;
         }
     }
+
+    for (const auto& imp : implications_micale) {
+        auto it = map.find(imp);
+        if (it == map.end() || it->second == 0)
+            cerr << "Implication not found: " << imp;
+        else if (within_tolerance(imp, it->first, pvalueTolerance, statTolerance)) {
+            cerr << "Difference found Micale: " << imp << endl;
+            cerr << "Difference found Luca:   " << it->first << endl;
+        }
+    }
+
     cout << "Done" << endl;
 }
 
