@@ -31,7 +31,7 @@ typedef struct symm_impl_t{
 
 
 namespace BooleanNet{
-    __global__ void getImplication(uint64_t * expr_values, uint64_t * zero_flags, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_impls);
+    __global__ void getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_impls);
 };
 
 #endif

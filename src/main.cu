@@ -17,12 +17,12 @@ uint64_t round_div_up (uint64_t a, uint64_t b){
     return (a + b - 1)/b;
 }
 
-void StepMinerCompression (char * expression_values_char, uint64_t *expr_values, uint64_t * zero_flags, uint64_t ngenes, int nsamples){
+void StepMinerCompression (char * expression_values_char, uint32_t *expr_values, uint32_t * zero_flags, uint64_t ngenes, int nsamples){
     int nbits = sizeof(*zero_flags) * 8;
     int nslots = round_div_up(nsamples, nbits);
     for (uint64_t i = 0; i < ngenes; i++){
-        uint64_t * zero_flags_row = zero_flags + i * nslots;
-        uint64_t * discretizedValues_row = expr_values + i * nslots;
+        uint32_t * zero_flags_row = zero_flags + i * nslots;
+        uint32_t * discretizedValues_row = expr_values + i * nslots;
         for (int j = 0; j < nsamples; j++){
             int byte_to_access = j / nbits;
             int bit_to_access = j % nbits;
@@ -44,7 +44,7 @@ void StepMinerCompression (char * expression_values_char, uint64_t *expr_values,
 }
 
 
-void launch_kernel (uint64_t *d_expr_values, uint64_t * d_zero_flags, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
+void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
     int lws = 256;
     uint64_t nels = (ngenes * (ngenes - 1)) / 2;
     uint64_t gws = round_div_up(nels, lws);
@@ -102,10 +102,10 @@ int main(int argc, char * argv[]){
     n_rows = fm.getNumberOfRows();
     n_cols = fm.getNumberOfColumns();
 
-    uint64_t * expr_values;
-    uint64_t * zero_flags;
-    err = cudaMallocHost(&expr_values, sizeof(uint64_t) * n_rows * n_cols); cuda_err_check(err, __FILE__, __LINE__);
-    err = cudaMallocHost(&zero_flags, sizeof(uint64_t) * n_rows * n_cols); cuda_err_check(err, __FILE__, __LINE__);
+    uint32_t * expr_values;
+    uint32_t * zero_flags;
+    err = cudaMallocHost(&expr_values, sizeof(uint32_t) * n_rows * n_cols); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMallocHost(&zero_flags, sizeof(uint32_t) * n_rows * n_cols); cuda_err_check(err, __FILE__, __LINE__);
 
     StepMinerCompression(expr_values_char, expr_values, zero_flags, n_rows, n_cols);
 
@@ -131,19 +131,19 @@ int main(int argc, char * argv[]){
     symm_impl * d_symm_implications;
     err = cudaMalloc(&d_symm_implications, sizeof(symm_impl) * MAX_N_SYM_IMP); cuda_err_check(err, __FILE__, __LINE__);
 
-    uint64_t * d_zero_flags;
-    err = cudaMalloc(&d_zero_flags, sizeof(uint64_t) * n_rows * nslots); cuda_err_check(err, __FILE__, __LINE__);
+    uint32_t * d_zero_flags;
+    err = cudaMalloc(&d_zero_flags, sizeof(uint32_t) * n_rows * nslots); cuda_err_check(err, __FILE__, __LINE__);
 
-    uint64_t * d_expr_values;
-    err = cudaMalloc(&d_expr_values, sizeof(uint64_t) * n_rows * nslots); cuda_err_check(err, __FILE__, __LINE__);
+    uint32_t * d_expr_values;
+    err = cudaMalloc(&d_expr_values, sizeof(uint32_t) * n_rows * nslots); cuda_err_check(err, __FILE__, __LINE__);
 
 
     // cuda Memcpy --------------------------------------------
 
     err = cudaMemset(d_impl_len, 0, sizeof(uint32_t)); cuda_err_check(err, __FILE__, __LINE__);
     err = cudaMemset(d_symm_impl_len, 0, sizeof(uint32_t)); cuda_err_check(err, __FILE__, __LINE__);
-    err = cudaMemcpy(d_zero_flags, zero_flags, sizeof(uint64_t) * n_rows * nslots, cudaMemcpyHostToDevice); cuda_err_check(err, __FILE__, __LINE__);
-    err = cudaMemcpy(d_expr_values, expr_values, sizeof(uint64_t) * n_rows * nslots, cudaMemcpyHostToDevice); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMemcpy(d_zero_flags, zero_flags, sizeof(uint32_t) * n_rows * nslots, cudaMemcpyHostToDevice); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMemcpy(d_expr_values, expr_values, sizeof(uint32_t) * n_rows * nslots, cudaMemcpyHostToDevice); cuda_err_check(err, __FILE__, __LINE__);
 
     // Launch kernel ------------------------------------------
 
