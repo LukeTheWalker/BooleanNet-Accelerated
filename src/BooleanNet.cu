@@ -19,7 +19,8 @@ __device__ void getQuadrantCounts(uint64_t gene1, uint64_t gene2, uint64_t * exp
     for (int i = 0; i < 4; i++){
         quadrant_counts[i] = 0;
     }
-    int nslots = (nsamples + 63) / 64;
+    int nbits = sizeof(*zero_flags) * 8;
+    int nslots = (nsamples + nbits - 1) / nbits;
     for (int i = 0; i < nslots; i++){
         uint64_t gene1_slot = expr_values[gene1 * nslots + i];
         uint64_t gene2_slot = expr_values[gene2 * nslots + i];

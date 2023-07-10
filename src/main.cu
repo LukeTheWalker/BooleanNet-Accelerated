@@ -18,13 +18,14 @@ uint64_t round_div_up (uint64_t a, uint64_t b){
 }
 
 void StepMinerCompression (char * expression_values_char, uint64_t *expr_values, uint64_t * zero_flags, uint64_t ngenes, int nsamples){
-    int nslots = round_div_up(nsamples, 64);
+    int nbits = sizeof(*zero_flags) * 8;
+    int nslots = round_div_up(nsamples, nbits);
     for (uint64_t i = 0; i < ngenes; i++){
         uint64_t * zero_flags_row = zero_flags + i * nslots;
         uint64_t * discretizedValues_row = expr_values + i * nslots;
         for (int j = 0; j < nsamples; j++){
-            int byte_to_access = j / 64;
-            int bit_to_access = j % 64;
+            int byte_to_access = j / nbits;
+            int bit_to_access = j % nbits;
             if (expression_values_char[i * nsamples + j] == -1){
                 BIT_SET(*(zero_flags_row + byte_to_access), bit_to_access);
                 BIT_CLEAR(*(discretizedValues_row + byte_to_access), bit_to_access);
@@ -48,9 +49,23 @@ void launch_kernel (uint64_t *d_expr_values, uint64_t * d_zero_flags, uint64_t n
     uint64_t nels = (ngenes * (ngenes - 1)) / 2;
     uint64_t gws = round_div_up(nels, lws);
     cerr << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << nels << " items" << endl;
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start);
+
     BooleanNet::getImplication<<<gws, lws>>>(d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
-    cudaError_t err = cudaGetLastError();
-    cuda_err_check(err, __FILE__, __LINE__);
+    
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    cudaError_t err = cudaGetLastError(); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaDeviceSynchronize(); cuda_err_check(err, __FILE__, __LINE__);
+
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    cerr << "Kernel execution time: " << milliseconds << " ms" << endl;
 }
 
 void parse_arguments(int argc, char * argv[], string & expression_file, string & implication_file, float & statThresh, float & pvalThresh){
@@ -94,7 +109,8 @@ int main(int argc, char * argv[]){
 
     StepMinerCompression(expr_values_char, expr_values, zero_flags, n_rows, n_cols);
 
-    int nslots = round_div_up(n_cols, 64);
+    int nbits = sizeof(*zero_flags) * 8;
+    int nslots = round_div_up(n_cols, nbits);
 
     cerr << "Expression Matrix shape: " << n_rows << " x " << n_cols << endl;
     cerr << "Number of genes: " << genes.size() << endl;
