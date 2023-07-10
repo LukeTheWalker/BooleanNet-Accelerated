@@ -17,12 +17,38 @@ uint64_t round_div_up (uint64_t a, uint64_t b){
     return (a + b - 1)/b;
 }
 
-void launch_kernel (char * d_expr_values, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
+void StepMinerCompression (char * expression_values_char, uint64_t *expr_values, uint64_t * zero_flags, uint64_t ngenes, int nsamples){
+    int nslots = round_div_up(nsamples, 64);
+    for (uint64_t i = 0; i < ngenes; i++){
+        uint64_t * zero_flags_row = zero_flags + i * nslots;
+        uint64_t * discretizedValues_row = expr_values + i * nslots;
+        for (int j = 0; j < nsamples; j++){
+            int byte_to_access = j / 64;
+            int bit_to_access = j % 64;
+            if (expression_values_char[i * nsamples + j] == -1){
+                BIT_SET(*(zero_flags_row + byte_to_access), bit_to_access);
+                BIT_CLEAR(*(discretizedValues_row + byte_to_access), bit_to_access);
+            }
+            else if (expression_values_char[i * nsamples + j] == 1){
+                BIT_SET(*(zero_flags_row + byte_to_access), bit_to_access);
+                BIT_SET(*(discretizedValues_row + byte_to_access), bit_to_access);
+
+            }
+            else {
+                BIT_CLEAR(*(zero_flags_row + byte_to_access), bit_to_access);
+                BIT_CLEAR(*(discretizedValues_row + byte_to_access), bit_to_access);
+            }
+        }
+    }
+}
+
+
+void launch_kernel (uint64_t *d_expr_values, uint64_t * d_zero_flags, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
     int lws = 256;
     uint64_t nels = (ngenes * (ngenes - 1)) / 2;
     uint64_t gws = round_div_up(nels, lws);
     cerr << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << nels << " items" << endl;
-    BooleanNet::getImplication<<<gws, lws>>>(d_expr_values, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
+    BooleanNet::getImplication<<<gws, lws>>>(d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
     cudaError_t err = cudaGetLastError();
     cuda_err_check(err, __FILE__, __LINE__);
 }
@@ -52,23 +78,28 @@ int main(int argc, char * argv[]){
     parse_arguments(argc, argv, expression_file, implication_file, statThresh, pvalThresh);
 
     vector<string> genes;
-    char * expr_values;
+    char * expr_values_char;
     int n_rows, n_cols;
     fm.readFile(expression_file);
    
     genes = fm.getListGenes();
-    expr_values = fm.getMatrix();
+    expr_values_char = fm.getMatrix();
     n_rows = fm.getNumberOfRows();
     n_cols = fm.getNumberOfColumns();
+
+    uint64_t * expr_values;
+    uint64_t * zero_flags;
+    err = cudaMallocHost(&expr_values, sizeof(uint64_t) * n_rows * n_cols); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMallocHost(&zero_flags, sizeof(uint64_t) * n_rows * n_cols); cuda_err_check(err, __FILE__, __LINE__);
+
+    StepMinerCompression(expr_values_char, expr_values, zero_flags, n_rows, n_cols);
+
+    int nslots = round_div_up(n_cols, 64);
 
     cerr << "Expression Matrix shape: " << n_rows << " x " << n_cols << endl;
     cerr << "Number of genes: " << genes.size() << endl;
 
     // cuda Malloc --------------------------------------------
-
-
-    char * d_expr_values;
-    err = cudaMalloc(&d_expr_values, sizeof(char) * n_rows * n_cols); cuda_err_check(err, __FILE__, __LINE__);
 
     uint32_t impl_len;
     uint32_t * d_impl_len;
@@ -84,15 +115,23 @@ int main(int argc, char * argv[]){
     symm_impl * d_symm_implications;
     err = cudaMalloc(&d_symm_implications, sizeof(symm_impl) * MAX_N_SYM_IMP); cuda_err_check(err, __FILE__, __LINE__);
 
+    uint64_t * d_zero_flags;
+    err = cudaMalloc(&d_zero_flags, sizeof(uint64_t) * n_rows * nslots); cuda_err_check(err, __FILE__, __LINE__);
+
+    uint64_t * d_expr_values;
+    err = cudaMalloc(&d_expr_values, sizeof(uint64_t) * n_rows * nslots); cuda_err_check(err, __FILE__, __LINE__);
+
+
     // cuda Memcpy --------------------------------------------
 
-    err = cudaMemcpy(d_expr_values, expr_values, sizeof(char) * n_rows * n_cols, cudaMemcpyHostToDevice); cuda_err_check(err, __FILE__, __LINE__);
     err = cudaMemset(d_impl_len, 0, sizeof(uint32_t)); cuda_err_check(err, __FILE__, __LINE__);
     err = cudaMemset(d_symm_impl_len, 0, sizeof(uint32_t)); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMemcpy(d_zero_flags, zero_flags, sizeof(uint64_t) * n_rows * nslots, cudaMemcpyHostToDevice); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMemcpy(d_expr_values, expr_values, sizeof(uint64_t) * n_rows * nslots, cudaMemcpyHostToDevice); cuda_err_check(err, __FILE__, __LINE__);
 
     // Launch kernel ------------------------------------------
 
-    launch_kernel(d_expr_values, n_rows, n_cols, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
+    launch_kernel(d_expr_values, d_zero_flags, n_rows, n_cols, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
 
     cudaDeviceSynchronize();
 

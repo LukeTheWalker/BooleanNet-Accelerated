@@ -15,27 +15,23 @@ __device__ char get_inverse_implication(char impl_type){
     }
 }
 
-__device__ void getQuadrantCounts(int gene1, int gene2, char* expr_values, int nsamples, int* quadrant_counts){
+__device__ void getQuadrantCounts(uint64_t gene1, uint64_t gene2, uint64_t * expr_values, uint64_t * zero_flags, int nsamples, int* quadrant_counts){
     for (int i = 0; i < 4; i++){
         quadrant_counts[i] = 0;
     }
-    for (int i = 0; i < nsamples; i++){
-        if (expr_values[gene1 * nsamples + i] == -1){
-            if (expr_values[gene2 * nsamples + i] == -1){
-                quadrant_counts[0]++;
-            }
-            else if (expr_values[gene2 * nsamples + i] == 1){
-                quadrant_counts[1]++;
-            }
-        }
-        else if (expr_values[gene1 * nsamples + i] == 1){
-            if (expr_values[gene2 * nsamples + i] == -1){
-                quadrant_counts[2]++;
-            }
-            else if (expr_values[gene2 * nsamples + i] == 1){
-                quadrant_counts[3]++;
-            }
-        }
+    int nslots = (nsamples + 63) / 64;
+    for (int i = 0; i < nslots; i++){
+        uint64_t gene1_slot = expr_values[gene1 * nslots + i];
+        uint64_t gene2_slot = expr_values[gene2 * nslots + i];
+        uint64_t zero_slot = zero_flags[gene1 * nslots + i] & zero_flags[gene2 * nslots + i];
+        uint64_t gene1_slot_low = ~gene1_slot & zero_slot;
+        uint64_t gene1_slot_high = gene1_slot & zero_slot;
+        uint64_t gene2_slot_low = ~gene2_slot & zero_slot;
+        uint64_t gene2_slot_high = gene2_slot & zero_slot;
+        quadrant_counts[0] += __popcll(gene1_slot_low & gene2_slot_low);
+        quadrant_counts[1] += __popcll(gene1_slot_low & gene2_slot_high);
+        quadrant_counts[2] += __popcll(gene1_slot_high & gene2_slot_low);
+        quadrant_counts[3] += __popcll(gene1_slot_high & gene2_slot_high);
     }
 }
 
@@ -92,7 +88,7 @@ __device__ void getSingleImplication(int* quadrant_counts, int n_total, int n_fi
     }
 }
 
-__global__ void BooleanNet::getImplication(char * expr_values, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
+__global__ void BooleanNet::getImplication(uint64_t * expr_values, uint64_t * zero_flags, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
     uint64_t gi = (uint64_t) blockIdx.x * (uint64_t) blockDim.x + (uint64_t) threadIdx.x;
 
     uint64_t gene1 = ngenes - 2 - floor(sqrt((double)-8*gi + 4*ngenes*(ngenes-1)-7)/2.0 - 0.5);
@@ -108,7 +104,7 @@ __global__ void BooleanNet::getImplication(char * expr_values, uint64_t ngenes, 
     float all_statistic[4], all_pval[4];
 
     int quadrant_counts[4];
-    getQuadrantCounts(gene1, gene2, expr_values, nsamples, quadrant_counts);
+    getQuadrantCounts(gene1, gene2, expr_values, zero_flags, nsamples, quadrant_counts);
 
     n_first_low = quadrant_counts[0] + quadrant_counts[1];
     n_first_high = quadrant_counts[2] + quadrant_counts[3];
