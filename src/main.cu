@@ -13,14 +13,14 @@
 
 using namespace std;
 
-uint64_t round_div_up (uint64_t a, uint64_t b){
+uint32_t round_div_up (uint32_t a, uint32_t b){
     return (a + b - 1)/b;
 }
 
-void StepMinerCompression (char * expression_values_char, uint32_t *expr_values, uint32_t * zero_flags, uint64_t ngenes, int nsamples){
+void StepMinerCompression (char * expression_values_char, uint32_t *expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples){
     int nbits = sizeof(*zero_flags) * 8;
     int nslots = round_div_up(nsamples, nbits);
-    for (uint64_t i = 0; i < ngenes; i++){
+    for (uint32_t i = 0; i < ngenes; i++){
         uint32_t * zero_flags_row = zero_flags + i * nslots;
         uint32_t * discretizedValues_row = expr_values + i * nslots;
         for (int j = 0; j < nsamples; j++){
@@ -44,11 +44,14 @@ void StepMinerCompression (char * expression_values_char, uint32_t *expr_values,
 }
 
 
-void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
-    int lws = 256;
-    uint64_t nels = (ngenes * (ngenes - 1)) / 2;
-    uint64_t gws = round_div_up(nels, lws);
-    cerr << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << nels << " items" << endl;
+void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
+    // int lws = 256;
+    dim3 lws(16, 16, 1);
+    dim3 gws(round_div_up(ngenes, lws.x), round_div_up(ngenes, lws.y), 1);
+    // uint64_t nels = (ngenes * (ngenes - 1)) / 2;
+    // uint64_t gws = round_div_up(nels, lws);
+    // cerr << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << nels << " items" << endl;
+    cerr << "Launching kernel with " << gws.x << " x " << gws.y << " work-groups and " << lws.x << " x " << lws.y << " work-items per group" << endl;
 
     cudaEvent_t start, stop;
     cudaEventCreate(&start);

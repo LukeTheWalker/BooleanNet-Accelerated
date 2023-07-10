@@ -15,7 +15,7 @@ __device__ char get_inverse_implication(char impl_type){
     }
 }
 
-__device__ void getQuadrantCounts(uint64_t gene1, uint64_t gene2, uint32_t * expr_values, uint32_t * zero_flags, int nsamples, int* quadrant_counts){
+__device__ void getQuadrantCounts(uint32_t gene1, uint32_t gene2, uint32_t * expr_values, uint32_t * zero_flags, int nsamples, int* quadrant_counts){
     for (int i = 0; i < 4; i++){
         quadrant_counts[i] = 0;
     }
@@ -69,35 +69,42 @@ __device__ void getSingleImplication(int* quadrant_counts, int n_total, int n_fi
 
     if (impl_type == 0){
         T n_expected = (T)(n_first_low * n_second_high) / n_total;
-        *statistic = (n_expected - quadrant_counts[1]) / sqrt(n_expected);
+        *statistic = (n_expected - quadrant_counts[1]) / __fsqrt_rn(n_expected);
         *pval = ((((T)quadrant_counts[1] / n_first_low) + ((T)quadrant_counts[1] / n_second_high)) / 2);
     }
     else if (impl_type == 1){
         T n_expected = (T)(n_first_low * n_second_low) / n_total;
-        *statistic = (n_expected - quadrant_counts[0]) / sqrt(n_expected);
+        *statistic = (n_expected - quadrant_counts[0]) / __fsqrt_rn(n_expected);
         *pval = ((((T)quadrant_counts[0] / n_first_low) + ((T)quadrant_counts[0] / n_second_low)) / 2);
     }
     else if (impl_type == 2){
         T n_expected = (T)(n_first_high * n_second_high) / n_total;
-        *statistic = (n_expected - quadrant_counts[3]) / sqrt(n_expected);
+        *statistic = (n_expected - quadrant_counts[3]) / __fsqrt_rn(n_expected);
         *pval = ((((T)quadrant_counts[3] / n_first_high) + ((T)quadrant_counts[3] / n_second_high)) / 2);
     }
     else if (impl_type == 3){
         T n_expected = (T)(n_first_high * n_second_low) / n_total;
-        *statistic = (n_expected - quadrant_counts[2]) / sqrt(n_expected);
+        *statistic = (n_expected - quadrant_counts[2]) / __fsqrt_rn(n_expected);
         *pval = ((((T)quadrant_counts[2] / n_first_high) + ((T)quadrant_counts[2] / n_second_low)) / 2);
     }
 }
 
-__global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
-    uint64_t gi = (uint64_t) blockIdx.x * (uint64_t) blockDim.x + (uint64_t) threadIdx.x;
+__global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
+    // uint64_t gi = (uint64_t) blockIdx.x * (uint64_t) blockDim.x + (uint64_t) threadIdx.x;
 
-    uint64_t gene1 = ngenes - 2 - floor(sqrt((double)-8*gi + 4*ngenes*(ngenes-1)-7)/2.0 - 0.5);
-    uint64_t gene2 = gi + gene1 + 1 - ngenes*(ngenes-1)/2 + (ngenes-gene1)*((ngenes-gene1)-1)/2;
+    // uint64_t gene1 = ngenes - 2 - floor(sqrt((double)-8*gi + 4*ngenes*(ngenes-1)-7)/2.0 - 0.5);
+    // uint64_t gene2 = gi + gene1 + 1 - ngenes*(ngenes-1)/2 + (ngenes-gene1)*((ngenes-gene1)-1)/2;
 
-    uint64_t nels = (ngenes * (ngenes - 1)) / 2;
+    // uint64_t nels = (ngenes * (ngenes - 1)) / 2;
     
-    if (gene1 == gene2 || gi >= nels){
+    // if (gene1 == gene2 || gi >= nels){
+    //     return;
+    // }
+
+    uint32_t gene1 = (uint32_t) blockIdx.x * (uint32_t) blockDim.x + (uint32_t) threadIdx.x;
+    uint32_t gene2 = (uint32_t) blockIdx.y * (uint32_t) blockDim.y + (uint32_t) threadIdx.y;
+
+    if (gene1 >= ngenes || gene2 >= ngenes || gene2 >= gene1){
         return;
     }
 
