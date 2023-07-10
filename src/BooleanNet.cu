@@ -59,7 +59,7 @@ __device__ char is_zero(int n_first_low, int n_first_high, int n_second_low, int
     return 1;
 }
 
-
+template<typename T>
 __device__ void getSingleImplication(int* quadrant_counts, int n_total, int n_first_low, int n_first_high, int n_second_low, int n_second_high, char impl_type, float* statistic, float* pval){
     if (is_zero(n_first_low, n_first_high, n_second_low, n_second_high, impl_type)){
         *statistic = 0.0;
@@ -68,24 +68,24 @@ __device__ void getSingleImplication(int* quadrant_counts, int n_total, int n_fi
     }
 
     if (impl_type == 0){
-        double n_expected = (double)(n_first_low * n_second_high) / n_total;
+        T n_expected = (T)(n_first_low * n_second_high) / n_total;
         *statistic = (n_expected - quadrant_counts[1]) / sqrt(n_expected);
-        *pval = ((((double)quadrant_counts[1] / n_first_low) + ((double)quadrant_counts[1] / n_second_high)) / 2);
+        *pval = ((((T)quadrant_counts[1] / n_first_low) + ((T)quadrant_counts[1] / n_second_high)) / 2);
     }
     else if (impl_type == 1){
-        double n_expected = (double)(n_first_low * n_second_low) / n_total;
+        T n_expected = (T)(n_first_low * n_second_low) / n_total;
         *statistic = (n_expected - quadrant_counts[0]) / sqrt(n_expected);
-        *pval = ((((double)quadrant_counts[0] / n_first_low) + ((double)quadrant_counts[0] / n_second_low)) / 2);
+        *pval = ((((T)quadrant_counts[0] / n_first_low) + ((T)quadrant_counts[0] / n_second_low)) / 2);
     }
     else if (impl_type == 2){
-        double n_expected = (double)(n_first_high * n_second_high) / n_total;
+        T n_expected = (T)(n_first_high * n_second_high) / n_total;
         *statistic = (n_expected - quadrant_counts[3]) / sqrt(n_expected);
-        *pval = ((((double)quadrant_counts[3] / n_first_high) + ((double)quadrant_counts[3] / n_second_high)) / 2);
+        *pval = ((((T)quadrant_counts[3] / n_first_high) + ((T)quadrant_counts[3] / n_second_high)) / 2);
     }
     else if (impl_type == 3){
-        double n_expected = (double)(n_first_high * n_second_low) / n_total;
+        T n_expected = (T)(n_first_high * n_second_low) / n_total;
         *statistic = (n_expected - quadrant_counts[2]) / sqrt(n_expected);
-        *pval = ((((double)quadrant_counts[2] / n_first_high) + ((double)quadrant_counts[2] / n_second_low)) / 2);
+        *pval = ((((T)quadrant_counts[2] / n_first_high) + ((T)quadrant_counts[2] / n_second_low)) / 2);
     }
 }
 
@@ -117,7 +117,7 @@ __global__ void BooleanNet::getImplication(uint64_t * expr_values, uint64_t * ze
     for (char impl_type = 0; impl_type < 4; impl_type++){
         float * statistic = all_statistic + impl_type;
         float * pval = all_pval + impl_type;
-        getSingleImplication(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, statistic, pval);
+        getSingleImplication<float>(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, statistic, pval);
         if (*statistic >= statThresh && *pval <= pvalThresh){
             int idx = atomicAdd(impl_len, 2);
             d_implications[idx] = {(int)gene1, (int)gene2, impl_type, *statistic, *pval};
