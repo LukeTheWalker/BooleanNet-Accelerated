@@ -103,8 +103,8 @@ __global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * ze
 
     uint32_t gene1 = (uint32_t) blockIdx.x * (uint32_t) blockDim.x + (uint32_t) threadIdx.x;
     uint32_t gene2 = (uint32_t) blockIdx.y * (uint32_t) blockDim.y + (uint32_t) threadIdx.y;
-
-    if (gene1 >= ngenes || gene2 >= ngenes || gene2 >= gene1){
+    
+    if (gene1 >= ngenes || gene2 >= ngenes || gene2 <= gene1){
         return;
     }
 
