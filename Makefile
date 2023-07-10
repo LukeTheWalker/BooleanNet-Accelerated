@@ -11,7 +11,7 @@ else
 	CUFLAGS := -gencode arch=compute_75,code=sm_75 -gencode arch=compute_86,code=sm_86 -gencode arch=compute_86,code=compute_86
 endif
 
-CXXFLAGS= -I$(IDIR) -std=c++17 -g $(CUFLAGS) $(CV_FLAGS)
+CXXFLAGS= -I$(IDIR) -std=c++17 -g $(CUFLAGS) $(CV_FLAGS) -O3
 LDFLAGS = $(GMP) $(CV_LIBS)
 
 ODIR=obj

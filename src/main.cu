@@ -17,12 +17,12 @@ uint64_t round_div_up (uint64_t a, uint64_t b){
     return (a + b - 1)/b;
 }
 
-void launch_kernel (char * d_expr_values, uint64_t ngenes, int nsamples, BooleanNet * d_net, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
+void launch_kernel (char * d_expr_values, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
     int lws = 256;
     uint64_t nels = (ngenes * (ngenes - 1)) / 2;
     uint64_t gws = round_div_up(nels, lws);
     cerr << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << nels << " items" << endl;
-    getImplication<<<gws, lws>>>(d_expr_values, ngenes, nsamples, d_net, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
+    BooleanNet::getImplication<<<gws, lws>>>(d_expr_values, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
     cudaError_t err = cudaGetLastError();
     cuda_err_check(err, __FILE__, __LINE__);
 }
@@ -66,50 +66,33 @@ int main(int argc, char * argv[]){
 
     // cuda Malloc --------------------------------------------
 
-    BooleanNet net;
-    BooleanNet * d_net;
-    err = cudaMalloc(&d_net, sizeof(BooleanNet));
-    cuda_err_check(err, __FILE__, __LINE__);
 
     char * d_expr_values;
-    err = cudaMalloc(&d_expr_values, sizeof(char) * n_rows * n_cols);
-    cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMalloc(&d_expr_values, sizeof(char) * n_rows * n_cols); cuda_err_check(err, __FILE__, __LINE__);
 
     uint32_t impl_len;
     uint32_t * d_impl_len;
-    err = cudaMalloc(&d_impl_len, sizeof(uint32_t));
-    cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMalloc(&d_impl_len, sizeof(uint32_t)); cuda_err_check(err, __FILE__, __LINE__);
 
     impl * d_implications;
-    err = cudaMalloc(&d_implications, sizeof(impl) * MAX_N_IMP);
-    cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMalloc(&d_implications, sizeof(impl) * MAX_N_IMP); cuda_err_check(err, __FILE__, __LINE__);
 
     uint32_t symm_impl_len;
     uint32_t * d_symm_impl_len;
-    err = cudaMalloc(&d_symm_impl_len, sizeof(uint32_t));
-    cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMalloc(&d_symm_impl_len, sizeof(uint32_t)); cuda_err_check(err, __FILE__, __LINE__);
 
     symm_impl * d_symm_implications;
-    err = cudaMalloc(&d_symm_implications, sizeof(symm_impl) * MAX_N_SYM_IMP);
-    cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMalloc(&d_symm_implications, sizeof(symm_impl) * MAX_N_SYM_IMP); cuda_err_check(err, __FILE__, __LINE__);
 
     // cuda Memcpy --------------------------------------------
 
-    err = cudaMemcpy(d_expr_values, expr_values, sizeof(char) * n_rows * n_cols, cudaMemcpyHostToDevice);
-    cuda_err_check(err, __FILE__, __LINE__);
-
-    err = cudaMemcpy(d_net, &net, sizeof(BooleanNet), cudaMemcpyHostToDevice);
-    cuda_err_check(err, __FILE__, __LINE__);
-
-    err = cudaMemset(d_impl_len, 0, sizeof(uint32_t));
-    cuda_err_check(err, __FILE__, __LINE__);
-
-    err = cudaMemset(d_symm_impl_len, 0, sizeof(uint32_t));
-    cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMemcpy(d_expr_values, expr_values, sizeof(char) * n_rows * n_cols, cudaMemcpyHostToDevice); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMemset(d_impl_len, 0, sizeof(uint32_t)); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaMemset(d_symm_impl_len, 0, sizeof(uint32_t)); cuda_err_check(err, __FILE__, __LINE__);
 
     // Launch kernel ------------------------------------------
 
-    launch_kernel(d_expr_values, n_rows, n_cols, d_net, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
+    launch_kernel(d_expr_values, n_rows, n_cols, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
 
     cudaDeviceSynchronize();
 
@@ -152,9 +135,6 @@ int main(int argc, char * argv[]){
     // Free memory --------------------------------------------
 
     err = cudaFree(d_expr_values);
-    cuda_err_check(err, __FILE__, __LINE__);
-
-    err = cudaFree(d_net);
     cuda_err_check(err, __FILE__, __LINE__);
 
     err = cudaFree(d_impl_len);
