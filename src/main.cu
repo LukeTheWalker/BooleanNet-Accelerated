@@ -126,6 +126,7 @@ int main(int argc, char * argv[]){
 
     impl * d_implications;
     err = cudaMalloc(&d_implications, sizeof(impl) * MAX_N_IMP); cuda_err_check(err, __FILE__, __LINE__);
+    cerr << "Max number of implications acceptable: " << MAX_N_IMP << endl;
 
     uint32_t symm_impl_len;
     uint32_t * d_symm_impl_len;
@@ -133,6 +134,7 @@ int main(int argc, char * argv[]){
 
     symm_impl * d_symm_implications;
     err = cudaMalloc(&d_symm_implications, sizeof(symm_impl) * MAX_N_SYM_IMP); cuda_err_check(err, __FILE__, __LINE__);
+    cerr << "Max number of symmetric implications acceptable: " << MAX_N_SYM_IMP << endl;
 
     uint32_t * d_zero_flags;
     err = cudaMalloc(&d_zero_flags, sizeof(uint32_t) * n_rows * nslots); cuda_err_check(err, __FILE__, __LINE__);
