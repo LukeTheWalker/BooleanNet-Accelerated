@@ -46,29 +46,35 @@ void StepMinerCompression (char * expression_values_char, uint32_t *expr_values,
 
 void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
     // int lws = 256;
-    dim3 lws(16, 16, 1);
+    int nbits = sizeof(*d_zero_flags) * 8;
+    int nslots = round_div_up(nsamples, nbits);
+    dim3 lws(BLOCK_SIZE, BLOCK_SIZE, 1);
     dim3 gws(round_div_up(ngenes, lws.x), round_div_up(ngenes, lws.y), 1);
     // uint64_t nels = (ngenes * (ngenes - 1)) / 2;
     // uint64_t gws = round_div_up(nels, lws);
     // cerr << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << nels << " items" << endl;
     cerr << "Launching kernel with " << gws.x << " x " << gws.y << " work-groups and " << lws.x << " x " << lws.y << " work-items per group" << endl;
 
+    cudaError_t err;
     cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start);
+    err = cudaEventCreate(&start); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaEventCreate(&stop); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaEventRecord(start); cuda_err_check(err, __FILE__, __LINE__);
 
     BooleanNet::getImplication<<<gws, lws>>>(d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
     
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
+    err = cudaEventRecord(stop);
+    err = cudaEventSynchronize(stop);
 
-    cudaError_t err = cudaGetLastError(); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaGetLastError(); cuda_err_check(err, __FILE__, __LINE__);
     err = cudaDeviceSynchronize(); cuda_err_check(err, __FILE__, __LINE__);
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
     cerr << "Kernel execution time: " << milliseconds << " ms" << endl;
+
+    err = cudaEventDestroy(start); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaEventDestroy(stop); cuda_err_check(err, __FILE__, __LINE__);
 }
 
 void parse_arguments(int argc, char * argv[], string & expression_file, string & implication_file, float & statThresh, float & pvalThresh){

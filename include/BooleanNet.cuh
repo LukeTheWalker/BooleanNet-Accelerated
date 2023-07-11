@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+const int BLOCK_SIZE = 16;
+
 
 // where implication is a number between 0 and 5
 // 0: gene1 low  => gene2 low
@@ -31,7 +33,7 @@ typedef struct symm_impl_t{
 
 
 namespace BooleanNet{
-    __global__ void getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_impls);
+    __global__ void getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_implications);
 };
 
 #endif

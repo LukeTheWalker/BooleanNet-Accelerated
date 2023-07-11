@@ -89,18 +89,7 @@ __device__ void getSingleImplication(int* quadrant_counts, int n_total, int n_fi
     }
 }
 
-__global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
-    // uint64_t gi = (uint64_t) blockIdx.x * (uint64_t) blockDim.x + (uint64_t) threadIdx.x;
-
-    // uint64_t gene1 = ngenes - 2 - floor(sqrt((double)-8*gi + 4*ngenes*(ngenes-1)-7)/2.0 - 0.5);
-    // uint64_t gene2 = gi + gene1 + 1 - ngenes*(ngenes-1)/2 + (ngenes-gene1)*((ngenes-gene1)-1)/2;
-
-    // uint64_t nels = (ngenes * (ngenes - 1)) / 2;
-    
-    // if (gene1 == gene2 || gi >= nels){
-    //     return;
-    // }
-
+__global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_implications){
     uint32_t gene1 = (uint32_t) blockIdx.x * (uint32_t) blockDim.x + (uint32_t) threadIdx.x;
     uint32_t gene2 = (uint32_t) blockIdx.y * (uint32_t) blockDim.y + (uint32_t) threadIdx.y;
     
@@ -127,19 +116,19 @@ __global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * ze
         getSingleImplication<float>(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, statistic, pval);
         if (*statistic >= statThresh && *pval <= pvalThresh){
             int idx = atomicAdd(impl_len, 2);
-            d_implications[idx] = {(int)gene1, (int)gene2, impl_type, *statistic, *pval};
-            d_implications[idx + 1] = {(int)gene2, (int)gene1, get_inverse_implication(impl_type), *statistic, *pval};
+            implications[idx] = {(int)gene1, (int)gene2, impl_type, *statistic, *pval};
+            implications[idx + 1] = {(int)gene2, (int)gene1, get_inverse_implication(impl_type), *statistic, *pval};
         }
     }
     if (all_statistic[0] >= statThresh && all_pval[0] <= pvalThresh && all_statistic[3] >= statThresh && all_pval[3] <= pvalThresh){
-        int idx = atomicAdd(d_symm_impl_len, 2);
-        d_symm_implications[idx] = {(int)gene1, (int)gene2, 4, all_statistic[0], all_statistic[3], all_pval[0], all_pval[3]};
-        d_symm_implications[idx + 1] = {(int)gene2, (int)gene1, 4, all_statistic[3], all_statistic[0], all_pval[3], all_pval[0]};
+        int idx = atomicAdd(symm_impl_len, 2);
+        symm_implications[idx] = {(int)gene1, (int)gene2, 4, all_statistic[0], all_statistic[3], all_pval[0], all_pval[3]};
+        symm_implications[idx + 1] = {(int)gene2, (int)gene1, 4, all_statistic[3], all_statistic[0], all_pval[3], all_pval[0]};
     }
     else if (all_statistic[1] >= statThresh && all_pval[1] <= pvalThresh && all_statistic[2] >= statThresh && all_pval[2] <= pvalThresh){
-        int idx = atomicAdd(d_symm_impl_len, 2);
-        d_symm_implications[idx] = {(int)gene1, (int)gene2, 5, all_statistic[1], all_statistic[2], all_pval[1], all_pval[2]};
-        d_symm_implications[idx + 1] = {(int)gene2, (int)gene1, 5, all_statistic[2], all_statistic[1], all_pval[2], all_pval[1]};
+        int idx = atomicAdd(symm_impl_len, 2);
+        symm_implications[idx] = {(int)gene1, (int)gene2, 5, all_statistic[1], all_statistic[2], all_pval[1], all_pval[2]};
+        symm_implications[idx + 1] = {(int)gene2, (int)gene1, 5, all_statistic[2], all_statistic[1], all_pval[2], all_pval[1]};
     }
 }
 
