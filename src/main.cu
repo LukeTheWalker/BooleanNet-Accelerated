@@ -8,9 +8,6 @@
 #include "InputParser.hpp"
 #include "util.cuh"
 
-#define MAX_N_IMP 25000000
-#define MAX_N_SYM_IMP 1000000
-
 using namespace std;
 
 uint32_t round_div_up (uint32_t a, uint32_t b){
@@ -50,9 +47,6 @@ void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint32_t n
     int nslots = round_div_up(nsamples, nbits);
     dim3 lws(BLOCK_SIZE, BLOCK_SIZE, 1);
     dim3 gws(round_div_up(ngenes, lws.x), round_div_up(ngenes, lws.y), 1);
-    // uint64_t nels = (ngenes * (ngenes - 1)) / 2;
-    // uint64_t gws = round_div_up(nels, lws);
-    // cerr << "Launching kernel with " << gws << " work-groups and " << lws << " work-items per group" << " for " << nels << " items" << endl;
     cerr << "Launching kernel with " << gws.x << " x " << gws.y << " work-groups and " << lws.x << " x " << lws.y << " work-items per group" << endl;
 
     cudaError_t err;
@@ -63,8 +57,8 @@ void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint32_t n
 
     BooleanNet::getImplication<<<gws, lws>>>(d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
     
-    err = cudaEventRecord(stop);
-    err = cudaEventSynchronize(stop);
+    err = cudaEventRecord(stop); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaEventSynchronize(stop); cuda_err_check(err, __FILE__, __LINE__);
 
     err = cudaGetLastError(); cuda_err_check(err, __FILE__, __LINE__);
     err = cudaDeviceSynchronize(); cuda_err_check(err, __FILE__, __LINE__);
@@ -198,26 +192,14 @@ int main(int argc, char * argv[]){
 
     // Free memory --------------------------------------------
 
-    err = cudaFree(d_expr_values);
-    cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaFree(d_expr_values); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaFree(d_impl_len); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaFree(d_implications); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaFree(d_symm_impl_len); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaFree(d_symm_implications); cuda_err_check(err, __FILE__, __LINE__);
 
-    err = cudaFree(d_impl_len);
-    cuda_err_check(err, __FILE__, __LINE__);
-
-    err = cudaFree(d_implications);
-    cuda_err_check(err, __FILE__, __LINE__);
-
-    err = cudaFree(d_symm_impl_len);
-    cuda_err_check(err, __FILE__, __LINE__);
-
-    err = cudaFree(d_symm_implications);
-    cuda_err_check(err, __FILE__, __LINE__);
-
-    err = cudaFreeHost(implications);
-    cuda_err_check(err, __FILE__, __LINE__);
-
-    err = cudaFreeHost(symm_implications);
-    cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaFreeHost(implications); cuda_err_check(err, __FILE__, __LINE__);
+    err = cudaFreeHost(symm_implications); cuda_err_check(err, __FILE__, __LINE__);
 
     return 0;
 }

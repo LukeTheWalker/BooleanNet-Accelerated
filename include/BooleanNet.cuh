@@ -36,4 +36,8 @@ namespace BooleanNet{
     __global__ void getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_implications);
 };
 
+// 4GB of memory divided by the size of a single implication
+const uint32_t MAX_N_IMP = (uint32_t)4e9 / (uint32_t)sizeof(impl);
+const uint32_t MAX_N_SYM_IMP = (uint32_t)1e9 / (uint32_t)sizeof(symm_impl);
+
 #endif

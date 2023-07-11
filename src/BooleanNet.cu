@@ -1,4 +1,5 @@
 #include "BooleanNet.cuh"
+#include <assert.h>
 
 __device__ char get_inverse_implication(char impl_type){
     if (impl_type == 0){
@@ -19,16 +20,16 @@ __device__ void getQuadrantCounts(uint32_t gene1, uint32_t gene2, uint32_t * exp
     for (int i = 0; i < 4; i++){
         quadrant_counts[i] = 0;
     }
-    int nbits = sizeof(*zero_flags) * 8;
-    int nslots = (nsamples + nbits - 1) / nbits;
+    const int nbits = sizeof(*zero_flags) * 8;
+    const int nslots = (nsamples + nbits - 1) / nbits;
     for (int i = 0; i < nslots; i++){
-        uint32_t gene1_slot = expr_values[gene1 * nslots + i];
-        uint32_t gene2_slot = expr_values[gene2 * nslots + i];
-        uint32_t zero_slot = zero_flags[gene1 * nslots + i] & zero_flags[gene2 * nslots + i];
-        uint32_t gene1_slot_low = ~gene1_slot & zero_slot;
-        uint32_t gene1_slot_high = gene1_slot & zero_slot;
-        uint32_t gene2_slot_low = ~gene2_slot & zero_slot;
-        uint32_t gene2_slot_high = gene2_slot & zero_slot;
+        const uint32_t gene1_slot = expr_values[gene1 * nslots + i];
+        const uint32_t gene2_slot = expr_values[gene2 * nslots + i];
+        const uint32_t zero_slot = zero_flags[gene1 * nslots + i] & zero_flags[gene2 * nslots + i];
+        const uint32_t gene1_slot_low = ~gene1_slot & zero_slot;
+        const uint32_t gene1_slot_high = gene1_slot & zero_slot;
+        const uint32_t gene2_slot_low = ~gene2_slot & zero_slot;
+        const uint32_t gene2_slot_high = gene2_slot & zero_slot;
         quadrant_counts[0] += __popc(gene1_slot_low & gene2_slot_low);
         quadrant_counts[1] += __popc(gene1_slot_low & gene2_slot_high);
         quadrant_counts[2] += __popc(gene1_slot_high & gene2_slot_low);
@@ -116,17 +117,20 @@ __global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * ze
         getSingleImplication<float>(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, statistic, pval);
         if (*statistic >= statThresh && *pval <= pvalThresh){
             int idx = atomicAdd(impl_len, 2);
+            assert(idx < MAX_N_IMP);
             implications[idx] = {(int)gene1, (int)gene2, impl_type, *statistic, *pval};
             implications[idx + 1] = {(int)gene2, (int)gene1, get_inverse_implication(impl_type), *statistic, *pval};
         }
     }
     if (all_statistic[0] >= statThresh && all_pval[0] <= pvalThresh && all_statistic[3] >= statThresh && all_pval[3] <= pvalThresh){
         int idx = atomicAdd(symm_impl_len, 2);
+        assert(idx < MAX_N_SYM_IMP);
         symm_implications[idx] = {(int)gene1, (int)gene2, 4, all_statistic[0], all_statistic[3], all_pval[0], all_pval[3]};
         symm_implications[idx + 1] = {(int)gene2, (int)gene1, 4, all_statistic[3], all_statistic[0], all_pval[3], all_pval[0]};
     }
     else if (all_statistic[1] >= statThresh && all_pval[1] <= pvalThresh && all_statistic[2] >= statThresh && all_pval[2] <= pvalThresh){
         int idx = atomicAdd(symm_impl_len, 2);
+        assert(idx < MAX_N_SYM_IMP);
         symm_implications[idx] = {(int)gene1, (int)gene2, 5, all_statistic[1], all_statistic[2], all_pval[1], all_pval[2]};
         symm_implications[idx + 1] = {(int)gene2, (int)gene1, 5, all_statistic[2], all_statistic[1], all_pval[2], all_pval[1]};
     }
