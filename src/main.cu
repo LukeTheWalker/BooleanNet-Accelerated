@@ -41,7 +41,7 @@ void StepMinerCompression (char * expression_values_char, uint32_t *expr_values,
 }
 
 
-void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications){
+void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * d_impl_len, impl * d_implications, uint32_t * d_symm_impl_len, symm_impl * d_symm_implications, bool full_precision){
     // int lws = 256;
     int nbits = sizeof(*d_zero_flags) * 8;
     int nslots = round_div_up(nsamples, nbits);
@@ -55,8 +55,10 @@ void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint32_t n
     err = cudaEventCreate(&stop); cuda_err_check(err, __FILE__, __LINE__);
     err = cudaEventRecord(start); cuda_err_check(err, __FILE__, __LINE__);
 
-    BooleanNet::getImplication<<<gws, lws>>>(d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
-    
+    if (full_precision)
+    BooleanNet::getImplication<double><<<gws, lws>>>(d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
+    else 
+    BooleanNet::getImplication<float><<<gws, lws>>>(d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
     err = cudaEventRecord(stop); cuda_err_check(err, __FILE__, __LINE__);
     err = cudaEventSynchronize(stop); cuda_err_check(err, __FILE__, __LINE__);
 
@@ -71,7 +73,7 @@ void launch_kernel (uint32_t *d_expr_values, uint32_t * d_zero_flags, uint32_t n
     err = cudaEventDestroy(stop); cuda_err_check(err, __FILE__, __LINE__);
 }
 
-void parse_arguments(int argc, char * argv[], string & expression_file, string & implication_file, float & statThresh, float & pvalThresh){
+void parse_arguments(int argc, char * argv[], string & expression_file, string & implication_file, float & statThresh, float & pvalThresh, bool & full_precision){
     InputParser pars(argc, argv);
 
     expression_file = "/home/luca/Development/IDM/Tesi/expr_discrete/expr_big.txt";
@@ -80,11 +82,14 @@ void parse_arguments(int argc, char * argv[], string & expression_file, string &
     statThresh = 3.0;
     pvalThresh = 0.1;
 
+    full_precision = false;
+
     if (pars.cmdOptionExists("-h")) {cerr << "Usage: " << argv[0] << " -i <expression_file> -s <statistic_threshold> -p <p-value_threshold> -o <implication_file>" << endl; exit(0);}
     if (pars.cmdOptionExists("-i")) expression_file = pars.getCmdOption("-i");  else cerr << "Warning: no expression file specified, using default: " << expression_file << endl;
     if (pars.cmdOptionExists("-s")) statThresh = stod(pars.getCmdOption("-s")); else cerr << "Warning: no statistic threshold specified, using default: " << statThresh << endl;
     if (pars.cmdOptionExists("-p")) pvalThresh = stod(pars.getCmdOption("-p")); else cerr << "Warning: no p-value threshold specified, using default: " << pvalThresh << endl;
     if (pars.cmdOptionExists("-o")) implication_file = pars.getCmdOption("-o"); else cerr << "Warning: no implication file specified, using default: " << implication_file << endl;
+    if (pars.cmdOptionExists("-fp64")) full_precision = true; else cerr << "Warning: using compressed representation" << endl;
 }
 
 int main(int argc, char * argv[]){
@@ -93,7 +98,9 @@ int main(int argc, char * argv[]){
     string expression_file, implication_file;
     float statThresh, pvalThresh;
 
-    parse_arguments(argc, argv, expression_file, implication_file, statThresh, pvalThresh);
+    bool full_precision;
+
+    parse_arguments(argc, argv, expression_file, implication_file, statThresh, pvalThresh, full_precision);
 
     vector<string> genes;
     char * expr_values_char;
@@ -152,7 +159,7 @@ int main(int argc, char * argv[]){
 
     // Launch kernel ------------------------------------------
 
-    launch_kernel(d_expr_values, d_zero_flags, n_rows, n_cols, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
+    launch_kernel(d_expr_values, d_zero_flags, n_rows, n_cols, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications, full_precision);
 
     cudaDeviceSynchronize();
 

@@ -90,6 +90,7 @@ __device__ void getSingleImplication(int* quadrant_counts, int n_total, int n_fi
     }
 }
 
+template<typename T>
 __global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_implications){
     uint32_t gene1 = (uint32_t) blockIdx.x * (uint32_t) blockDim.x + (uint32_t) threadIdx.x;
     uint32_t gene2 = (uint32_t) blockIdx.y * (uint32_t) blockDim.y + (uint32_t) threadIdx.y;
@@ -114,7 +115,7 @@ __global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * ze
     for (char impl_type = 0; impl_type < 4; impl_type++){
         float * statistic = all_statistic + impl_type;
         float * pval = all_pval + impl_type;
-        getSingleImplication<float>(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, statistic, pval);
+        getSingleImplication<T>(quadrant_counts, n_total, n_first_low, n_first_high, n_second_low, n_second_high, impl_type, statistic, pval);
         if (*statistic >= statThresh && *pval <= pvalThresh){
             int idx = atomicAdd(impl_len, 2);
             assert(idx < MAX_N_IMP);
@@ -136,3 +137,5 @@ __global__ void BooleanNet::getImplication(uint32_t * expr_values, uint32_t * ze
     }
 }
 
+template __global__ void BooleanNet::getImplication<float> (uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_implications);
+template __global__ void BooleanNet::getImplication<double>(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_implications);

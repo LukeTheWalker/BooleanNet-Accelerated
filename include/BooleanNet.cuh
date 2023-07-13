@@ -33,7 +33,7 @@ typedef struct symm_impl_t{
 
 
 namespace BooleanNet{
-    __global__ void getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_implications);
+    template<typename T> __global__ void getImplication(uint32_t * expr_values, uint32_t * zero_flags, uint32_t ngenes, int nsamples, float statThresh, float pvalThresh, uint32_t * impl_len, impl * implications, uint32_t * symm_impl_len, symm_impl * symm_implications);
 };
 
 // 4GB of memory divided by the size of a single implication
