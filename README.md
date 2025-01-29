@@ -56,9 +56,8 @@ The CUDA implementation provides significant performance improvements over CPU-b
 ## Citation
 If you use this tool in your research, please cite:
 ```
-Greco, L.V. (2023). Implementation of random models on Boolean correlation networks 
-of gene expression and methylation. University of Catania.
-```]
+Greco, L.V. (2023). Implementation of random models on Boolean correlation networks of gene expression and methylation. University of Catania.
+```
 
 ## Contributing
 Contributions are welcome! Please read the contributing guidelines before submitting pull requests.
