@@ -1,11 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <cuda_runtime.h>
 
-#include "FileManager.cuh"
-#include "util.cuh"
-#include "BooleanNet.cuh"
+#include "FileManager.hpp"
+#include "util.hpp"
+#include "BooleanNet.hpp"
 
 using namespace std;
 
@@ -14,9 +13,6 @@ FileManager::FileManager(){
 }
 
 FileManager::~FileManager(){
-    cudaError_t err = cudaFreeHost(matrix);
-    cuda_err_check(err, __FILE__, __LINE__);
-
     std::cerr << "FileManager destroyed" << std::endl;
 }
 
@@ -62,8 +58,7 @@ void FileManager::readFile(string file){
 
     std::cerr << "Reading file with " << n_rows << " rows and " << n_columns << " columns" << std::endl;
 
-    cudaError_t err = cudaMallocHost(&matrix, (n_rows) * (n_columns) * sizeof(char));
-    cuda_err_check(err, __FILE__, __LINE__);
+    matrix.resize(n_rows * n_columns);
 
     getline(in, line); // get rid of headers
     while(getline(in, line)){
@@ -124,7 +119,7 @@ vector<string> FileManager::getListGenes(){
 }
 
 char * FileManager::getMatrix(){
-    return matrix;
+    return matrix.data();
 }
 
 int FileManager::getNumberOfRows(){

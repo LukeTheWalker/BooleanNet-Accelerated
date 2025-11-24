@@ -1,10 +1,9 @@
-#ifndef FILEMANAGER_H
-#define FILEMANAGER_H
+#pragma once
 
 #include <vector>
 #include <string>
 
-#include "BooleanNet.cuh"
+#include "BooleanNet.hpp"
 
 class FileManager{
     public:
@@ -19,11 +18,9 @@ class FileManager{
         int getNumberOfColumns();
     private:
         std::vector<std::string> listGenes = {};
-        char * matrix;
+        std::vector<char> matrix;
         int n_rows = -1;
         int n_columns = -1;
         int getNumberOfColumns(std::string);
         int getNumberOfRows(std::string);
 };
-
-#endif

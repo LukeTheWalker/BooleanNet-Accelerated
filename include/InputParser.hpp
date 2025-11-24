@@ -1,5 +1,4 @@
-#ifndef INPUTPARSER_H
-#define INPUTPARSER_H
+#pragma once
 
 #include <vector>
 #include <string>
@@ -13,5 +12,3 @@ class InputParser{
     private:
         std::vector <std::string> tokens;
 };
-
-#endif
