@@ -4,19 +4,19 @@
 #include <alpaka/alpaka.hpp>
 
 namespace bit_ops {
-    ALPAKA_FN_HOST_ACC constexpr auto set(auto& a, std::size_t b) noexcept {
+    ALPAKA_FN_HOST_ACC constexpr void set(uint64_t& a, std::size_t b) noexcept {
         a |= (1ULL << b);
     }
 
-    ALPAKA_FN_HOST_ACC constexpr auto clear(auto& a, std::size_t b) noexcept {
+    ALPAKA_FN_HOST_ACC constexpr void clear(uint64_t& a, std::size_t b) noexcept {
         a &= ~(1ULL << b);
     }
 
-   ALPAKA_FN_HOST_ACC constexpr auto flip(auto& a, std::size_t b) noexcept {
+   ALPAKA_FN_HOST_ACC constexpr void flip(uint64_t& a, std::size_t b) noexcept {
         a ^= (1ULL << b);
     }
 
-    ALPAKA_FN_HOST_ACC constexpr bool check(auto a, std::size_t b) noexcept {
+    ALPAKA_FN_HOST_ACC constexpr bool check(uint64_t a, std::size_t b) noexcept {
         return (a & (1ULL << b)) != 0;
     }
 }

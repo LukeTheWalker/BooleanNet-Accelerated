@@ -4,4 +4,4 @@ bin
 data
 build
 *.sh
-
+output/*
