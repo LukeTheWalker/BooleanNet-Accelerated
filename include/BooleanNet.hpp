@@ -164,7 +164,7 @@ namespace BooleanNet{
                 {
 
                     if (gene1 >= ngenes || gene2 >= ngenes || gene2 <= gene1){
-                        return;
+                        continue;
                     }
 
                     uint64_t n_first_low, n_first_high, n_second_high, n_second_low, n_total;
