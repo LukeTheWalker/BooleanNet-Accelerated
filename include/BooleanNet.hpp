@@ -61,8 +61,7 @@ inline ALPAKA_FN_ACC uint64_t homemade_popcount(uint64_t x){
     return count;
 }    
 
-template<typename T_Acc>
-inline ALPAKA_FN_ACC void getQuadrantCounts(T_Acc const& acc, uint64_t gene1, uint64_t gene2,  alpaka::concepts::IMdSpan auto const expr_values, alpaka::concepts::IMdSpan auto const zero_flags, uint64_t nsamples, int32_t* quadrant_counts){
+inline ALPAKA_FN_ACC void getQuadrantCounts(uint64_t gene1, uint64_t gene2,  alpaka::concepts::IMdSpan auto const expr_values, alpaka::concepts::IMdSpan auto const zero_flags, uint64_t nsamples, int32_t* quadrant_counts){
     for (uint64_t i = 0; i < 4; i++){
         quadrant_counts[i] = 0;
     }
@@ -77,10 +76,10 @@ inline ALPAKA_FN_ACC void getQuadrantCounts(T_Acc const& acc, uint64_t gene1, ui
         const uint64_t gene2_slot_low = ~gene2_slot & zero_slot;
         const uint64_t gene2_slot_high = gene2_slot & zero_slot;
 
-        quadrant_counts[0] += alpaka::onAcc::popcount(acc, gene1_slot_low & gene2_slot_low);
-        quadrant_counts[1] += alpaka::onAcc::popcount(acc, gene1_slot_low & gene2_slot_high);
-        quadrant_counts[2] += alpaka::onAcc::popcount(acc, gene1_slot_high & gene2_slot_low);
-        quadrant_counts[3] += alpaka::onAcc::popcount(acc, gene1_slot_high & gene2_slot_high);
+        quadrant_counts[0] += alpaka::popcount(gene1_slot_low & gene2_slot_low);
+        quadrant_counts[1] += alpaka::popcount(gene1_slot_low & gene2_slot_high);
+        quadrant_counts[2] += alpaka::popcount(gene1_slot_high & gene2_slot_low);
+        quadrant_counts[3] += alpaka::popcount(gene1_slot_high & gene2_slot_high);
     }
 }
 
@@ -171,7 +170,7 @@ namespace BooleanNet{
                     float all_statistic[4], all_pval[4];
 
                     int32_t quadrant_counts[4];
-                    getQuadrantCounts(acc, gene1, gene2, expr_values, zero_flags, nsamples, quadrant_counts);
+                    getQuadrantCounts(gene1, gene2, expr_values, zero_flags, nsamples, quadrant_counts);
 
                     n_first_low = quadrant_counts[0] + quadrant_counts[1];
                     n_first_high = quadrant_counts[2] + quadrant_counts[3];
