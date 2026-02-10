@@ -28,3 +28,5 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC
         ${PROJECT_SOURCE_DIR}/include
 )
+
+add_subdirectory(perf_tests)
