@@ -3,44 +3,20 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <memory>
+#include <cmath>
+#include <hip/hip_runtime.h>
 
 #include "FileManager.hpp"
-#include "BooleanNet.hpp"
+#include "BooleanNetHIP.hpp"
 #include "StepMiner.hpp"
 #include "InputParser.hpp"
 #include "util.hpp"
 
 using namespace std;
-using namespace alpaka;
 
 uint64_t round_div_up (uint64_t a, uint64_t b){
     return (a + b - 1)/b;
-}
-
-void launch_kernel (auto exec, auto queue, concepts::View auto d_expr_values, concepts::View auto d_zero_flags, uint64_t ngenes, int nsamples, float statThresh, float pvalThresh,  concepts::View auto d_impl_len, concepts::View auto d_implications, concepts::View auto d_symm_impl_len, concepts::View auto d_symm_implications){
-    using namespace alpaka;
-    using Idx = uint64_t;
-
-    int nbits = sizeof(*d_zero_flags) * 8;
-    int nslots = round_div_up(nsamples, nbits);
-
-    Vec<Idx, 2u> const lws{BLOCK_SIZE, BLOCK_SIZE};
-    Vec<Idx, 2u> const gws{
-        round_div_up(ngenes, lws[0]),
-        round_div_up(ngenes, lws[1])
-    };
-    auto frameSpec = onHost::FrameSpec{gws, lws};
-
-    cerr << "Launching kernel with " << gws[0] * gws[1] << " work-groups and " << lws[0] * lws[1] << " work-items per group" << endl;
-    BooleanNet::getImplication kernel;
-    auto const taskKernel = KernelBundle{kernel, d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications};
-    
-    onHost::wait(queue);
-    auto const beginT = std::chrono::high_resolution_clock::now();
-    queue.enqueue(exec, frameSpec, taskKernel);
-    onHost::wait(queue);
-    auto const endT = std::chrono::high_resolution_clock::now();
-    std::cout << "Time for kernel execution: " << std::chrono::duration<double>(endT - beginT).count() << 's' << std::endl;
 }
 
 void parse_arguments(int argc, char * argv[], string & expression_file, string & implication_file, float & statThresh, float & pvalThresh, float & SMgap){
@@ -81,9 +57,6 @@ int main(int argc, char * argv[]){
     n_rows = fm.getNumberOfRows();
     n_cols = fm.getNumberOfColumns();
 
-    using IdxVec = Vec<std::size_t, 1u>;
-    IdxVec const extent(n_rows * n_cols);
-
     vector<uint64_t> expr_values(n_rows * n_cols);
     vector<uint64_t> zero_flags (n_rows * n_cols);
 
@@ -96,76 +69,88 @@ int main(int argc, char * argv[]){
     cerr << "Number of genes: " << genes.size() << endl;
 
     // device initialization ----------------------------------
-    auto deviceSpec = onHost::DeviceSpec{api::cuda, deviceKind::nvidiaGpu};
-    auto exec = exec::gpuCuda;
-
-    std::cout << "Using alpaka accelerator: " << onHost::demangledName(exec) << " for " << deviceSpec.getApi().getName() << " " << deviceSpec.getDeviceKind().getName() << std::endl;
-
-    // Select a device
-    auto devSelector = onHost::makeDeviceSelector(deviceSpec);
-    onHost::Device devAcc = devSelector.makeDevice(0);
-
-    // Create a queue on the device
-    onHost::Queue queue = devAcc.makeQueue();
+    int deviceCount;
+    hipGetDeviceCount(&deviceCount);
+    if (deviceCount == 0) {
+        cerr << "Error: No HIP devices found." << endl;
+        return 1;
+    }
+    hipSetDevice(0);
+    
+    hipDeviceProp_t prop;
+    hipGetDeviceProperties(&prop, 0);
+    std::cout << "Using HIP device: " << prop.name << std::endl;
 
     // Mallocs --------------------------------------------
+    uint64_t* d_impl_len;
+    impl* d_implications;
+    uint64_t* d_symm_impl_len;
+    symm_impl* d_symm_implications;
+    uint64_t* d_zero_flags;
+    uint64_t* d_expr_values;
 
-    auto impl_len   = onHost::allocHost<uint64_t>(IdxVec{1});
-    auto d_impl_len = onHost::alloc<uint64_t>(devAcc, IdxVec{1});
-
-    auto d_implications = onHost::alloc<impl>(devAcc, IdxVec{MAX_N_IMP});
-
-    auto symm_impl_len   = onHost::allocHost<uint64_t>(IdxVec{1});
-    auto d_symm_impl_len = onHost::alloc<uint64_t>(devAcc, IdxVec{1});
-
-    auto d_symm_implications = onHost::alloc<symm_impl>(devAcc, IdxVec{MAX_N_SYM_IMP});
-
-    auto d_zero_flags  = onHost::alloc<uint64_t>(devAcc, IdxVec{n_rows * nslots});
-    auto d_expr_values = onHost::alloc<uint64_t>(devAcc, IdxVec{n_rows * nslots});
+    hipMalloc(&d_impl_len, sizeof(uint64_t));
+    hipMalloc(&d_implications, MAX_N_IMP * sizeof(impl));
+    hipMalloc(&d_symm_impl_len, sizeof(uint64_t));
+    hipMalloc(&d_symm_implications, MAX_N_SYM_IMP * sizeof(symm_impl));
+    
+    // expr_values and zero_flags size calculation
+    // In original code: n_rows * nslots elements of uint64_t.
+    size_t data_size_bytes = n_rows * nslots * sizeof(uint64_t);
+    hipMalloc(&d_zero_flags, data_size_bytes);
+    hipMalloc(&d_expr_values, data_size_bytes);
 
     // Memcpy --------------------------------------------
 
-    onHost::memset(queue, d_impl_len, 0);
-    onHost::memset(queue, d_symm_impl_len, 0);
-    onHost::memcpy(queue, d_zero_flags, zero_flags);
-    onHost::memcpy(queue, d_expr_values, expr_values);
+    hipMemset(d_impl_len, 0, sizeof(uint64_t));
+    hipMemset(d_symm_impl_len, 0, sizeof(uint64_t));
+    hipMemcpy(d_zero_flags, zero_flags.data(), data_size_bytes, hipMemcpyHostToDevice);
+    hipMemcpy(d_expr_values, expr_values.data(), data_size_bytes, hipMemcpyHostToDevice);
 
     // // Launch kernel ------------------------------------------
 
-    launch_kernel(exec, queue, d_expr_values, d_zero_flags, n_rows, n_cols, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
+    auto const beginT = std::chrono::high_resolution_clock::now();
+    launch_hip_kernel(d_expr_values, d_zero_flags, n_rows, n_cols, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
+    auto const endT = std::chrono::high_resolution_clock::now();
+    std::cout << "Time for kernel execution: " << std::chrono::duration<double>(endT - beginT).count() << 's' << std::endl;
 
     // // Copy back results --------------------------------------
 
     cerr << "Kernel execution completed" << endl;
 
-    onHost::memcpy(queue, impl_len, d_impl_len);
-    onHost::memcpy(queue, symm_impl_len, d_symm_impl_len);
+    uint64_t impl_len_val;
+    uint64_t symm_impl_len_val;
 
-    cerr << "Number of asymmetric implications: " << *impl_len.data() << endl;
-    cerr << "Number of symmetric implications:  " << *symm_impl_len.data() << endl;
+    hipMemcpy(&impl_len_val, d_impl_len, sizeof(uint64_t), hipMemcpyDeviceToHost);
+    hipMemcpy(&symm_impl_len_val, d_symm_impl_len, sizeof(uint64_t), hipMemcpyDeviceToHost);
 
-    
-    if (*impl_len.data() > MAX_N_IMP || *symm_impl_len.data() > MAX_N_SYM_IMP){
+    cerr << "Number of asymmetric implications: " << impl_len_val << endl;
+    cerr << "Number of symmetric implications:  " << symm_impl_len_val << endl;
+
+    if (impl_len_val > MAX_N_IMP || symm_impl_len_val > MAX_N_SYM_IMP){
         cerr << "Error! Too many implications!" << endl;
         exit(1);
     }
 
     // // Copy back results --------------------------------------
 
-    auto impl_len_val = *impl_len.data();
-    auto implications   = onHost::allocHost<impl>(IdxVec{impl_len_val});
+    std::vector<impl> implications(impl_len_val);
+    hipMemcpy(implications.data(), d_implications, impl_len_val * sizeof(impl), hipMemcpyDeviceToHost);
 
-    onHost::memcpy(queue, implications, d_implications, impl_len_val);
-
-    auto symm_impl_len_val = *symm_impl_len.data();
-    auto symm_implications   = onHost::allocHost<symm_impl>(IdxVec{symm_impl_len_val});
-    onHost::memcpy(queue, symm_implications, d_symm_implications, symm_impl_len_val);
+    std::vector<symm_impl> symm_implications(symm_impl_len_val);
+    hipMemcpy(symm_implications.data(), d_symm_implications, symm_impl_len_val * sizeof(symm_impl), hipMemcpyDeviceToHost);
 
     // // Print results ------------------------------------------
 
-    fm.writeImplications(implication_file, genes, *impl_len.data(), implications.data(), *symm_impl_len.data(), symm_implications.data());
+    fm.writeImplications(implication_file, genes, impl_len_val, implications.data(), symm_impl_len_val, symm_implications.data());
 
     // // Free memory --------------------------------------------
+    hipFree(d_impl_len);
+    hipFree(d_implications);
+    hipFree(d_symm_impl_len);
+    hipFree(d_symm_implications);
+    hipFree(d_zero_flags);
+    hipFree(d_expr_values);
 
     return 0;
 }

@@ -1,25 +1,22 @@
 cmake_minimum_required(VERSION 3.25)
-
 project("BooleanNet-PerfTests" CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 set(CMAKE_BUILD_TYPE "Release")
 
-# --- Alpaka Configuration ---
-# set(alpaka_DEP_HIP ON)
-# set(CMAKE_HIP_ARCHITECTURES "gfx942")
-# set(alpaka_DEP_CUDA ON)
+list(APPEND CMAKE_MODULE_PATH "/opt/rocm/hip/cmake")
+find_package(hip REQUIRED)
 
-
-# Add Alpaka (builds from source)
-add_subdirectory("../../common/alpaka3" "${CMAKE_BINARY_DIR}/alpaka_build")
-
-# Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
-# --- Define Executable ---
-add_executable(perf_test perf_test.cpp)
-target_link_libraries(perf_test PUBLIC alpaka::alpaka) # Keep alpaka here
-alpaka_finalize(perf_test)
+add_executable(perf_test 
+    perf_test.cpp
+    ../src/BooleanNetHIP.cpp
+)
+
+target_link_libraries(perf_test PUBLIC hip::host)
+
+if (CMAKE_COMPILER_IS_GNUCXX)
+    target_compile_options(perf_test PRIVATE -Wno-deprecated-declarations)
+endif()
