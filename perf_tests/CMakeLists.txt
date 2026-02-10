@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project("BooleanNet-PerfTests" CXX)
+project("BooleanNet-PerfTests" CXX HIP)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,8 +12,10 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
 add_executable(perf_test 
     perf_test.cpp
-    ../src/BooleanNetHIP.cpp
+    ../src/BooleanNetHIP.hip
 )
+
+set_source_files_properties(../src/BooleanNetHIP.hip PROPERTIES LANGUAGE HIP)
 
 target_link_libraries(perf_test PUBLIC hip::host)
 

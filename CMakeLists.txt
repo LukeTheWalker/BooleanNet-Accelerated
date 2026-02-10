@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project("BooleanNet" CXX)
+project("BooleanNet" CXX HIP)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,10 +11,14 @@ find_package(hip REQUIRED)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 file(GLOB_RECURSE CPP_FILES CONFIGURE_DEPENDS "src/*.cpp")
+set(HIP_FILES "src/BooleanNetHIP.hip")
 
 add_executable(${PROJECT_NAME} 
     ${CPP_FILES}
+    ${HIP_FILES}
 )
+
+set_source_files_properties(${HIP_FILES} PROPERTIES LANGUAGE HIP)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC hip::host)
 

@@ -33,10 +33,10 @@ __device__ inline void getQuadrantCounts(uint64_t gene1, uint64_t gene2, const u
         const uint64_t gene2_slot_low = ~gene2_slot & zero_slot;
         const uint64_t gene2_slot_high = gene2_slot & zero_slot;
 
-        quadrant_counts[0] += __popcll(gene1_slot_low & gene2_slot_low);
-        quadrant_counts[1] += __popcll(gene1_slot_low & gene2_slot_high);
-        quadrant_counts[2] += __popcll(gene1_slot_high & gene2_slot_low);
-        quadrant_counts[3] += __popcll(gene1_slot_high & gene2_slot_high);
+        quadrant_counts[0] += __builtin_popcountll(gene1_slot_low & gene2_slot_low);
+        quadrant_counts[1] += __builtin_popcountll(gene1_slot_low & gene2_slot_high);
+        quadrant_counts[2] += __builtin_popcountll(gene1_slot_high & gene2_slot_low);
+        quadrant_counts[3] += __builtin_popcountll(gene1_slot_high & gene2_slot_high);
     }
 }
 
