@@ -13,7 +13,7 @@ using namespace std;
 // 4: equivalence (gene1 low <=> gene2 low)  && (gene1 high <=> gene2 high) => 0 && 3
 // 5: opposite    (gene1 low <=> gene2 high) && (gene1 high <=> gene2 low)  => 1 && 2
 
-ALPAKA_FN_HOST_ACC string get_impl_string (int impl){
+string get_impl_string (int impl){
     switch (impl){
         case 0: return "low-low";
         case 1: return "low-high";

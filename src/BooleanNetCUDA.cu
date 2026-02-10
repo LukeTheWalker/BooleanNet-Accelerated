@@ -173,14 +173,7 @@ void launch_cuda_kernel(
         (ngenes + threads.y - 1) / threads.y
     );
     
-    // Safety check for grid size if ngenes is huge, though 2D grid allows 65535*65535 blocks usually.
-    // However, if we want to mimic the Alpaka stride logic, we can launch as many blocks as we want or enough to cover the grid.
-    // The Alpaka code used:
-    // Vec<Idx, 2u> const gws{ round_div_up(ngenes, lws[0]), round_div_up(ngenes, lws[1]) };
-    // which is exactly what I did above.
-    
-    printf("Launching kernel with (%d, %d) blocks and (%d, %d) threads
-", blocks.x, blocks.y, threads.x, threads.y);
+    printf("Launching kernel with (%d, %d) blocks and (%d, %d) threads\n", blocks.x, blocks.y, threads.x, threads.y);
     
     getImplicationKernel<<<blocks, threads>>>(
         d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh,
@@ -189,8 +182,7 @@ void launch_cuda_kernel(
     
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
-        printf("CUDA Error: %s
-", cudaGetErrorString(err));
+        printf("CUDA Error: %s\n", cudaGetErrorString(err));
     }
     cudaDeviceSynchronize();
 }

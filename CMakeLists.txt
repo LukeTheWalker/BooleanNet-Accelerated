@@ -9,7 +9,7 @@ set(CMAKE_CUDA_ARCHITECTURES "86")
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 file(GLOB_RECURSE CPP_FILES CONFIGURE_DEPENDS "src/*.cpp")
-set(CUDA_FILES "src/BooleanNetCUDA.cu")
+set(CUDA_FILES "src/BooleanNetCUDA.cu" "src/main.cu")
 
 add_executable(${PROJECT_NAME} 
     ${CPP_FILES}
