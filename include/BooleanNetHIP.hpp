@@ -2,6 +2,19 @@
 
 #include <cstdint>
 #include <vector>
+#include <cstdio>
+#include <cstdlib>
+#include <hip/hip_runtime.h>
+
+#define CHECK_HIP(call)                                                         \
+    do {                                                                        \
+        hipError_t err = call;                                                  \
+        if (err != hipSuccess) {                                                \
+            fprintf(stderr, "HIP Error: %s at %s:%d\n",                         \
+                    hipGetErrorString(err), __FILE__, __LINE__);                \
+            exit(EXIT_FAILURE);                                                 \
+        }                                                                       \
+    } while (0)
 
 const uint64_t BLOCK_SIZE = 16;
 

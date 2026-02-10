@@ -48,37 +48,37 @@ double run_benchmark(uint64_t n_genes, uint64_t n_samples,
     symm_impl* d_symm_implications;
 
     size_t data_size = n_genes * nslots * sizeof(uint64_t);
-    hipMalloc(&d_expr, data_size);
-    hipMalloc(&d_zero, data_size);
+    CHECK_HIP(hipMalloc(&d_expr, data_size));
+    CHECK_HIP(hipMalloc(&d_zero, data_size));
     
-    hipMalloc(&d_impl_len, sizeof(uint64_t));
-    hipMalloc(&d_symm_impl_len, sizeof(uint64_t));
-    hipMalloc(&d_implications, MAX_N_IMP * sizeof(impl));
-    hipMalloc(&d_symm_implications, MAX_N_SYM_IMP * sizeof(symm_impl));
+    CHECK_HIP(hipMalloc(&d_impl_len, sizeof(uint64_t)));
+    CHECK_HIP(hipMalloc(&d_symm_impl_len, sizeof(uint64_t)));
+    CHECK_HIP(hipMalloc(&d_implications, MAX_N_IMP * sizeof(impl)));
+    CHECK_HIP(hipMalloc(&d_symm_implications, MAX_N_SYM_IMP * sizeof(symm_impl)));
 
     // Copy Host -> Device
-    hipMemcpy(d_expr, h_expr_vec.data(), data_size, hipMemcpyHostToDevice);
-    hipMemcpy(d_zero, h_zero_vec.data(), data_size, hipMemcpyHostToDevice);
+    CHECK_HIP(hipMemcpy(d_expr, h_expr_vec.data(), data_size, hipMemcpyHostToDevice));
+    CHECK_HIP(hipMemcpy(d_zero, h_zero_vec.data(), data_size, hipMemcpyHostToDevice));
     
-    hipMemset(d_impl_len, 0, sizeof(uint64_t));
-    hipMemset(d_symm_impl_len, 0, sizeof(uint64_t));
+    CHECK_HIP(hipMemset(d_impl_len, 0, sizeof(uint64_t)));
+    CHECK_HIP(hipMemset(d_symm_impl_len, 0, sizeof(uint64_t)));
 
     // Execute and Time
-    hipDeviceSynchronize();
+    CHECK_HIP(hipDeviceSynchronize());
     auto start = std::chrono::high_resolution_clock::now();
     
     launch_hip_kernel(d_expr, d_zero, n_genes, n_samples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
     
-    hipDeviceSynchronize();
+    CHECK_HIP(hipDeviceSynchronize());
     auto end = std::chrono::high_resolution_clock::now();
     
     // Free memory
-    hipFree(d_expr);
-    hipFree(d_zero);
-    hipFree(d_impl_len);
-    hipFree(d_symm_impl_len);
-    hipFree(d_implications);
-    hipFree(d_symm_implications);
+    CHECK_HIP(hipFree(d_expr));
+    CHECK_HIP(hipFree(d_zero));
+    CHECK_HIP(hipFree(d_impl_len));
+    CHECK_HIP(hipFree(d_symm_impl_len));
+    CHECK_HIP(hipFree(d_implications));
+    CHECK_HIP(hipFree(d_symm_implications));
     
     std::chrono::duration<double> diff = end - start;
     return diff.count();
@@ -87,7 +87,7 @@ double run_benchmark(uint64_t n_genes, uint64_t n_samples,
 int main() {
     // Check for HIP device
     int deviceCount;
-    hipGetDeviceCount(&deviceCount);
+    CHECK_HIP(hipGetDeviceCount(&deviceCount));
     if (deviceCount == 0) {
         std::cerr << "No HIP devices found." << std::endl;
         return 1;

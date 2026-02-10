@@ -180,9 +180,6 @@ void launch_hip_kernel(
         d_impl_len, d_implications, d_symm_impl_len, d_symm_implications
     );
     
-    hipError_t err = hipGetLastError();
-    if (err != hipSuccess) {
-        printf("HIP Error: %s\n", hipGetErrorString(err));
-    }
-    hipDeviceSynchronize();
+    CHECK_HIP(hipGetLastError());
+    CHECK_HIP(hipDeviceSynchronize());
 }

@@ -70,15 +70,15 @@ int main(int argc, char * argv[]){
 
     // device initialization ----------------------------------
     int deviceCount;
-    hipGetDeviceCount(&deviceCount);
+    CHECK_HIP(hipGetDeviceCount(&deviceCount));
     if (deviceCount == 0) {
         cerr << "Error: No HIP devices found." << endl;
         return 1;
     }
-    hipSetDevice(0);
+    CHECK_HIP(hipSetDevice(0));
     
     hipDeviceProp_t prop;
-    hipGetDeviceProperties(&prop, 0);
+    CHECK_HIP(hipGetDeviceProperties(&prop, 0));
     std::cout << "Using HIP device: " << prop.name << std::endl;
 
     // Mallocs --------------------------------------------
@@ -89,23 +89,23 @@ int main(int argc, char * argv[]){
     uint64_t* d_zero_flags;
     uint64_t* d_expr_values;
 
-    hipMalloc(&d_impl_len, sizeof(uint64_t));
-    hipMalloc(&d_implications, MAX_N_IMP * sizeof(impl));
-    hipMalloc(&d_symm_impl_len, sizeof(uint64_t));
-    hipMalloc(&d_symm_implications, MAX_N_SYM_IMP * sizeof(symm_impl));
+    CHECK_HIP(hipMalloc(&d_impl_len, sizeof(uint64_t)));
+    CHECK_HIP(hipMalloc(&d_implications, MAX_N_IMP * sizeof(impl)));
+    CHECK_HIP(hipMalloc(&d_symm_impl_len, sizeof(uint64_t)));
+    CHECK_HIP(hipMalloc(&d_symm_implications, MAX_N_SYM_IMP * sizeof(symm_impl)));
     
     // expr_values and zero_flags size calculation
     // In original code: n_rows * nslots elements of uint64_t.
     size_t data_size_bytes = n_rows * nslots * sizeof(uint64_t);
-    hipMalloc(&d_zero_flags, data_size_bytes);
-    hipMalloc(&d_expr_values, data_size_bytes);
+    CHECK_HIP(hipMalloc(&d_zero_flags, data_size_bytes));
+    CHECK_HIP(hipMalloc(&d_expr_values, data_size_bytes));
 
     // Memcpy --------------------------------------------
 
-    hipMemset(d_impl_len, 0, sizeof(uint64_t));
-    hipMemset(d_symm_impl_len, 0, sizeof(uint64_t));
-    hipMemcpy(d_zero_flags, zero_flags.data(), data_size_bytes, hipMemcpyHostToDevice);
-    hipMemcpy(d_expr_values, expr_values.data(), data_size_bytes, hipMemcpyHostToDevice);
+    CHECK_HIP(hipMemset(d_impl_len, 0, sizeof(uint64_t)));
+    CHECK_HIP(hipMemset(d_symm_impl_len, 0, sizeof(uint64_t)));
+    CHECK_HIP(hipMemcpy(d_zero_flags, zero_flags.data(), data_size_bytes, hipMemcpyHostToDevice));
+    CHECK_HIP(hipMemcpy(d_expr_values, expr_values.data(), data_size_bytes, hipMemcpyHostToDevice));
 
     // // Launch kernel ------------------------------------------
 
@@ -121,8 +121,8 @@ int main(int argc, char * argv[]){
     uint64_t impl_len_val;
     uint64_t symm_impl_len_val;
 
-    hipMemcpy(&impl_len_val, d_impl_len, sizeof(uint64_t), hipMemcpyDeviceToHost);
-    hipMemcpy(&symm_impl_len_val, d_symm_impl_len, sizeof(uint64_t), hipMemcpyDeviceToHost);
+    CHECK_HIP(hipMemcpy(&impl_len_val, d_impl_len, sizeof(uint64_t), hipMemcpyDeviceToHost));
+    CHECK_HIP(hipMemcpy(&symm_impl_len_val, d_symm_impl_len, sizeof(uint64_t), hipMemcpyDeviceToHost));
 
     cerr << "Number of asymmetric implications: " << impl_len_val << endl;
     cerr << "Number of symmetric implications:  " << symm_impl_len_val << endl;
@@ -135,22 +135,22 @@ int main(int argc, char * argv[]){
     // // Copy back results --------------------------------------
 
     std::vector<impl> implications(impl_len_val);
-    hipMemcpy(implications.data(), d_implications, impl_len_val * sizeof(impl), hipMemcpyDeviceToHost);
+    CHECK_HIP(hipMemcpy(implications.data(), d_implications, impl_len_val * sizeof(impl), hipMemcpyDeviceToHost));
 
     std::vector<symm_impl> symm_implications(symm_impl_len_val);
-    hipMemcpy(symm_implications.data(), d_symm_implications, symm_impl_len_val * sizeof(symm_impl), hipMemcpyDeviceToHost);
+    CHECK_HIP(hipMemcpy(symm_implications.data(), d_symm_implications, symm_impl_len_val * sizeof(symm_impl), hipMemcpyDeviceToHost));
 
     // // Print results ------------------------------------------
 
     fm.writeImplications(implication_file, genes, impl_len_val, implications.data(), symm_impl_len_val, symm_implications.data());
 
     // // Free memory --------------------------------------------
-    hipFree(d_impl_len);
-    hipFree(d_implications);
-    hipFree(d_symm_impl_len);
-    hipFree(d_symm_implications);
-    hipFree(d_zero_flags);
-    hipFree(d_expr_values);
+    CHECK_HIP(hipFree(d_impl_len));
+    CHECK_HIP(hipFree(d_implications));
+    CHECK_HIP(hipFree(d_symm_impl_len));
+    CHECK_HIP(hipFree(d_symm_implications));
+    CHECK_HIP(hipFree(d_zero_flags));
+    CHECK_HIP(hipFree(d_expr_values));
 
     return 0;
 }
