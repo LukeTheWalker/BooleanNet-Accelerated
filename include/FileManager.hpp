@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-#include "BooleanNet.hpp"
+#include "BooleanNetHIP.hpp"
 
 class FileManager{
     public:

@@ -173,8 +173,7 @@ void launch_hip_kernel(
         (ngenes + threads.y - 1) / threads.y
     );
     
-    printf("Launching kernel with (%d, %d) blocks and (%d, %d) threads
-", blocks.x, blocks.y, threads.x, threads.y);
+    printf("Launching kernel with (%d, %d) blocks and (%d, %d) threads\n", blocks.x, blocks.y, threads.x, threads.y);
     
     hipLaunchKernelGGL(getImplicationKernel, blocks, threads, 0, 0, 
         d_expr_values, d_zero_flags, ngenes, nsamples, statThresh, pvalThresh,
@@ -183,8 +182,7 @@ void launch_hip_kernel(
     
     hipError_t err = hipGetLastError();
     if (err != hipSuccess) {
-        printf("HIP Error: %s
-", hipGetErrorString(err));
+        printf("HIP Error: %s\n", hipGetErrorString(err));
     }
     hipDeviceSynchronize();
 }
