@@ -3,11 +3,9 @@
 #include <chrono>
 #include <fstream>
 #include <random>
-#include <alpaka/alpaka.hpp>
-#include <alpaka/onHost/example/executors.hpp>
-#include <alpaka/onHost/executeForEach.hpp>
+#include <cuda_runtime.h>
 
-#include "BooleanNet.hpp"
+#include "BooleanNetCUDA.cuh"
 
 // Utility to round up division
 uint64_t round_div_up (uint64_t a, uint64_t b){
@@ -32,27 +30,8 @@ void generate_random_data(std::vector<uint64_t>& expr, std::vector<uint64_t>& ze
     }
 }
 
-// Generic Benchmark Runner
-// Runs the kernel for a specific backend (device + executor)
-template<typename Backend>
-double run_benchmark(Backend const& backend, uint64_t n_genes, uint64_t n_samples, 
+double run_benchmark(uint64_t n_genes, uint64_t n_samples, 
                      const std::vector<uint64_t>& h_expr_vec, const std::vector<uint64_t>& h_zero_vec) {
-
-    using namespace alpaka;
-    using Idx = uint64_t;
-    
-    // Extract device and executor from the backend tuple
-    auto const& deviceSpec = backend[alpaka::object::deviceSpec];
-    auto const& exec = backend[alpaka::object::exec];
-
-    // Select a device
-    auto devSelector = onHost::makeDeviceSelector(deviceSpec);
-    // Use the first available device
-    if (devSelector.getDeviceCount() == 0) {
-        throw std::runtime_error("No device found for this backend");
-    }
-    auto devAcc = devSelector.makeDevice(0);
-    auto queue = devAcc.makeQueue();
 
     float statThresh = 3.0f;
     float pvalThresh = 0.1f;
@@ -60,109 +39,82 @@ double run_benchmark(Backend const& backend, uint64_t n_genes, uint64_t n_sample
     uint64_t nbits = 64;
     uint64_t nslots = round_div_up(n_samples, nbits);
     
-    // 1. Allocate Host Buffers (Pinned/Page-locked if supported)
-    // We copy from std::vector to these Alpaka buffers to ensure efficient transfer
-    using IdxVec = Vec<Idx, 1u>;
-    auto h_expr_buf = onHost::allocHost<uint64_t>(IdxVec{n_genes * nslots});
-    auto h_zero_buf = onHost::allocHost<uint64_t>(IdxVec{n_genes * nslots});
+    // Allocate Device Buffers
+    uint64_t* d_expr;
+    uint64_t* d_zero;
+    uint64_t* d_impl_len;
+    uint64_t* d_symm_impl_len;
+    impl* d_implications;
+    symm_impl* d_symm_implications;
+
+    size_t data_size = n_genes * nslots * sizeof(uint64_t);
+    cudaMalloc(&d_expr, data_size);
+    cudaMalloc(&d_zero, data_size);
     
-    // Populate host buffers
-    // Use pointers to copy
-    std::copy(h_expr_vec.begin(), h_expr_vec.end(), &h_expr_buf[0]);
-    std::copy(h_zero_vec.begin(), h_zero_vec.end(), &h_zero_buf[0]);
+    cudaMalloc(&d_impl_len, sizeof(uint64_t));
+    cudaMalloc(&d_symm_impl_len, sizeof(uint64_t));
+    cudaMalloc(&d_implications, MAX_N_IMP * sizeof(impl));
+    cudaMalloc(&d_symm_implications, MAX_N_SYM_IMP * sizeof(symm_impl));
 
-    // 2. Allocate Device Buffers
-    auto d_expr = onHost::alloc<uint64_t>(devAcc, IdxVec{n_genes * nslots});
-    auto d_zero = onHost::alloc<uint64_t>(devAcc, IdxVec{n_genes * nslots});
+    // Copy Host -> Device
+    cudaMemcpy(d_expr, h_expr_vec.data(), data_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_zero, h_zero_vec.data(), data_size, cudaMemcpyHostToDevice);
     
-    // Output buffers
-    uint64_t max_imp = MAX_N_IMP; 
-    auto d_impl_len = onHost::alloc<uint64_t>(devAcc, IdxVec{1});
-    auto d_symm_impl_len = onHost::alloc<uint64_t>(devAcc, IdxVec{1});
-    auto d_implications = onHost::alloc<impl>(devAcc, IdxVec{max_imp});
-    auto d_symm_implications = onHost::alloc<symm_impl>(devAcc, IdxVec{MAX_N_SYM_IMP});
+    cudaMemset(d_impl_len, 0, sizeof(uint64_t));
+    cudaMemset(d_symm_impl_len, 0, sizeof(uint64_t));
 
-    // 3. Copy Host -> Device
-    memcpy(queue, d_expr, h_expr_buf);
-    memcpy(queue, d_zero, h_zero_buf);
-    
-    memset(queue, d_impl_len, 0);
-    memset(queue, d_symm_impl_len, 0);
-
-    // 4. Define Grid/Block
-    Vec<Idx, 2u> const lws{BLOCK_SIZE, BLOCK_SIZE};
-    Vec<Idx, 2u> const gws{
-        round_div_up(n_genes, lws[0]),
-        round_div_up(n_genes, lws[1])
-    };
-    auto frameSpec = onHost::FrameSpec{gws, lws};
-
-    // 5. Kernel Setup
-    BooleanNet::getImplication kernel;
-    auto const taskKernel = KernelBundle{
-        kernel, 
-        d_expr, d_zero, 
-        n_genes, n_samples, 
-        statThresh, pvalThresh, 
-        d_impl_len, d_implications, 
-        d_symm_impl_len, d_symm_implications
-    };
-
-    // 6. Execute and Time
-    wait(queue); // Ensure copies are done
+    // Execute and Time
+    cudaDeviceSynchronize();
     auto start = std::chrono::high_resolution_clock::now();
     
-    queue.enqueue(exec, frameSpec, taskKernel);
-    wait(queue); 
+    launch_cuda_kernel(d_expr, d_zero, n_genes, n_samples, statThresh, pvalThresh, d_impl_len, d_implications, d_symm_impl_len, d_symm_implications);
     
+    cudaDeviceSynchronize();
     auto end = std::chrono::high_resolution_clock::now();
+    
+    // Free memory
+    cudaFree(d_expr);
+    cudaFree(d_zero);
+    cudaFree(d_impl_len);
+    cudaFree(d_symm_impl_len);
+    cudaFree(d_implications);
+    cudaFree(d_symm_implications);
     
     std::chrono::duration<double> diff = end - start;
     return diff.count();
 }
 
 int main() {
+    // Check for CUDA device
+    int deviceCount;
+    cudaGetDeviceCount(&deviceCount);
+    if (deviceCount == 0) {
+        std::cerr << "No CUDA devices found." << std::endl;
+        return 1;
+    }
+
     std::vector<uint64_t> gene_counts = {1000, 5000, 10000, 15000, 20000, 25000};
     uint64_t n_samples = 500;
     
     std::ofstream csv("perf_results.csv");
     csv << "backend,n_genes,time_sec\n";
     
-    // Iterate over gene counts
+    std::string backendName = "GPU_CUDA";
+
     for (auto n : gene_counts) {
         std::cout << "Benchmarking N=" << n << "..." << std::endl;
         
         std::vector<uint64_t> h_expr, h_zero;
         generate_random_data(h_expr, h_zero, n, n_samples);
         
-        // Iterate over all available backends using Alpaka helper
-        alpaka::onHost::executeForEachIfHasDevice(
-            [&](auto const& backend) {
-                try {
-                    auto const& deviceSpec = backend[alpaka::object::deviceSpec];
-                    auto const& exec = backend[alpaka::object::exec];
-                    
-                    std::string backendName = alpaka::onHost::demangledName(exec);
-                    // Simplify name for CSV
-                    if (backendName.find("CpuSerial") != std::string::npos) backendName = "CPU_Serial";
-                    else if (backendName.find("GpuCuda") != std::string::npos) backendName = "GPU_CUDA";
-                    else if (backendName.find("GpuHip") != std::string::npos) backendName = "GPU_HIP";
-                    else if (backendName.find("CpuOmp") != std::string::npos) backendName = "CPU_OpenMP";
-                    
-                    std::cout << "  Running on " << backendName << "..." << std::flush;
-                    
-                    double time = run_benchmark(backend, n, n_samples, h_expr, h_zero);
-                    
-                    std::cout << " " << time << "s" << std::endl;
-                    
-                    csv << backendName << "," << n << "," << time << "\n";
-                    csv.flush();
-                } catch (const std::exception& e) {
-                    std::cerr << "    Failed: " << e.what() << std::endl;
-                }
-            },
-            alpaka::onHost::allBackends(alpaka::onHost::enabledApis, alpaka::onHost::example::enabledExecutors)
-        );
+        std::cout << "  Running on " << backendName << "..." << std::flush;
+        
+        double time = run_benchmark(n, n_samples, h_expr, h_zero);
+        
+        std::cout << " " << time << "s" << std::endl;
+        
+        csv << backendName << "," << n << "," << time << "\n";
+        csv.flush();
     }
     
     csv.close();
