@@ -1,10 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <memory>
+#include <cstring>
 
 #include "FileManager.hpp"
 #include "util.hpp"
-#include "BooleanNet.hpp"
 #include "StepMiner.hpp"
 
 using namespace std;
